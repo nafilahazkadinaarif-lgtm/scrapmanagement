@@ -1,6 +1,6 @@
 # Panduan pemasangan
 
-Panduan ini bertambah tiap tahap. Saat ini: **Tahap 1 (login dan akun)** dan **Tahap 2 (form pengajuan)**, dan **Tahap 3 (alur approval)**.
+Panduan ini bertambah tiap tahap. Saat ini: **Tahap 1 (login dan akun)** dan **Tahap 2 (form pengajuan)**, **Tahap 3 (alur approval)**, dan **Tahap 4 (konfirmasi terima dan PDF)**.
 
 ## A. Siapkan Google (sekali saja)
 
@@ -126,3 +126,26 @@ Aturan:
 - [ ] Atur Deputy, Deputy menyetujui (tercatat "(Deputy)"). Cabut Deputy: tidak bisa lagi.
 - [ ] Logistic Staff mengajukan sendiri: tidak muncul di antreannya, tombol Setujui tidak ada. Logistic lain bisa.
 - [ ] Rekan sedepartemen tidak bisa membuka pengajuan orang lain.
+
+## Tambahan Tahap 4 (konfirmasi terima dan PDF)
+
+Tidak ada sheet baru. Salin file baru dan yang berubah, lalu terbitkan versi baru:
+
+- File baru: `Pdf.gs`.
+- File berubah: `Config.gs`, `Repo.gs`, `Workflow.gs`, `Subs.gs`, `Router.gs`, `ClientSubs.html`.
+- **Deploy → Manage deployments → pensil → Version: New version → Deploy**.
+
+Aturan:
+
+- Setelah **Disetujui**, pengajuan muncul di antrean semua Logistic Staff sebagai "perlu konfirmasi terima". Salah satu Logistic Staff menekan **Konfirmasi Diterima** setelah scrap fisik diserahkan: status **Selesai**. Pemohon tidak bisa lagi membatalkan.
+- Logistic Staff tidak bisa mengonfirmasi terima pengajuannya sendiri.
+- **Cetak / Unduh PDF** ada di halaman detail semua pengajuan yang sudah dikirim (bagi yang berhak melihat). File A4 berisi data, item, foto, riwayat persetujuan di sistem, dan 4 kolom tanda tangan basah: Pemohon, Dept. Head, Logistic Staff (Penerima), Logistic Dept. Head. Nama tercetak di bawah kolom: approver/penerima sebenarnya jika sudah ada, selain itu Dept. Head departemen dari sheet `Departments`.
+- Kolom **Logistic Dept. Head** diambil dari Dept. Head departemen bernama `Warehouse & Logistic` (`LOGISTIC_DEPARTMENT` di `Config.gs`). Ubah jika nama departemen berbeda.
+- Waktu di PDF memakai WITA (UTC+8, `UTC_OFFSET_HOURS` di `Config.gs`).
+
+### Uji manual Tahap 4
+
+- [ ] Pengajuan Disetujui muncul di antrean Logistic. **Konfirmasi Diterima** mengubah status ke Selesai. Tombol Batalkan hilang bagi pemohon.
+- [ ] PDF terunduh dari HP, tampil rapi di satu halaman A4, foto tampil (konverter PDF Google tidak bisa diuji di luar Google; jika foto tidak muncul, kabari agar diganti metode), nama dan waktu benar, 4 kolom tanda tangan lengkap.
+- [ ] Cetak PDF, tanda tangan basah di kertas.
+- [ ] Rekan yang tidak berhak tidak bisa mengunduh PDF pengajuan orang lain.

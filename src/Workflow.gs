@@ -44,7 +44,7 @@ var Workflow = {
 
   /**
    * Aksi yang boleh dilakukan user pada pengajuan:
-   * edit, delete, cancel, reopen (pemohon); approve, reject (penyetuju).
+   * edit, delete, cancel, reopen (pemohon); approve, reject, receive (penyetuju/Logistic).
    * Tidak ada yang boleh menyetujui/menolak pengajuan miliknya sendiri.
    */
   availableActions: function (user, sub, departments) {
@@ -60,6 +60,8 @@ var Workflow = {
       a.push('approve', 'reject');
     } else if (sub.Status === S.WAIT_LOG && Roles.derive(user).isLogistic) {
       a.push('approve', 'reject');
+    } else if (sub.Status === S.APPROVED && Roles.derive(user).isLogistic) {
+      a.push('receive');
     }
     return a;
   }

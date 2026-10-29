@@ -185,6 +185,12 @@ var Repo = {
     return 'data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes());
   },
 
+  // HTML -> PDF (konverter bawaan Google), hasil base64
+  htmlToPdf: function (html, name) {
+    var pdf = Utilities.newBlob(html, 'text/html', name + '.html').getAs('application/pdf');
+    return Utilities.base64Encode(pdf.getBytes());
+  },
+
   trashFile: function (fileId) { DriveApp.getFileById(fileId).setTrashed(true); },
   trashFolder: function (folderId) { DriveApp.getFolderById(folderId).setTrashed(true); }
 };

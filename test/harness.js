@@ -7,7 +7,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const SRC = path.join(__dirname, '..', 'src');
-const FILES = ['Config.gs', 'Sec.gs', 'Repo.gs', 'Roles.gs', 'Validate.gs', 'Workflow.gs', 'Auth.gs', 'Admin.gs', 'Subs.gs', 'Dept.gs', 'Router.gs', 'Code.gs', 'Setup.gs'];
+const FILES = ['Config.gs', 'Sec.gs', 'Repo.gs', 'Roles.gs', 'Validate.gs', 'Workflow.gs', 'Auth.gs', 'Admin.gs', 'Pdf.gs', 'Subs.gs', 'Dept.gs', 'Router.gs', 'Code.gs', 'Setup.gs'];
 
 function signedBytes(buf) {
   return Array.from(buf, (b) => (b > 127 ? b - 256 : b));
@@ -23,7 +23,7 @@ const Utilities = {
 };
 
 function createApp(seedUsers) {
-  const ctx = vm.createContext({ Utilities, console });
+  const ctx = vm.createContext({ Utilities, console, Buffer_: Buffer });
   for (const f of FILES) {
     vm.runInContext(fs.readFileSync(path.join(SRC, f), 'utf8'), ctx, { filename: f });
   }
@@ -62,6 +62,7 @@ function createApp(seedUsers) {
       var id = 'X' + (++__db.seq); __db.files[id] = { folderId: folderId, name: name, b64: b64 }; return id;
     };
     Repo.readFile = function (id) { return 'data:image/jpeg;base64,' + __db.files[id].b64; };
+    Repo.htmlToPdf = function (html, name) { return Buffer_.from(html, 'utf8').toString('base64'); };
     Repo.trashFile = function (id) { delete __db.files[id]; };
     Repo.trashFolder = function (id) { delete __db.folders[id]; };
   `, ctx);

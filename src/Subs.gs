@@ -104,6 +104,7 @@ var Subs = {
 
   waitingFor_: function (sub, depts) {
     if (sub.Status === CFG.STATUS.WAIT_LOG) return 'Logistic Staff';
+    if (sub.Status === CFG.STATUS.APPROVED) return 'Penyerahan scrap dan konfirmasi terima Logistic';
     if (sub.Status !== CFG.STATUS.WAIT_HEAD) return '';
     var d = Workflow.deptOf_(sub, depts);
     if (!d) return 'Dept. Head';
@@ -140,7 +141,8 @@ var Subs = {
   inbox: function (user) {
     var depts = Repo.allDepartments(), items = Repo.readTable('Items');
     var out = Repo.readTable('Submissions').filter(function (s) {
-      return Workflow.availableActions(user, s, depts).indexOf('approve') >= 0;
+      var acts = Workflow.availableActions(user, s, depts);
+      return acts.indexOf('approve') >= 0 || acts.indexOf('receive') >= 0;
     }).map(function (s) { return Subs.summary_(s, items); });
     out.sort(function (a, b) { return a.updatedAt < b.updatedAt ? -1 : 1; });
     return { ok: true, data: out };
@@ -159,7 +161,7 @@ var Subs = {
   act: function (user, p) {
     var action = String(p.action || '');
     var note = String(p.note || '').trim().substring(0, 500);
-    if (['approve', 'reject', 'cancel', 'reopen'].indexOf(action) < 0) return Subs.fail('Aksi tidak dikenal.');
+    if (['approve', 'reject', 'receive', 'cancel', 'reopen'].indexOf(action) < 0) return Subs.fail('Aksi tidak dikenal.');
     if (action === 'reject' && !note) return Subs.fail('Alasan penolakan wajib diisi.');
     return Repo.withLock(function () {
       var f = Subs.find_(p.id);
@@ -182,6 +184,9 @@ var Subs = {
       } else if (action === 'reject') {
         label = sub.Status === S.WAIT_HEAD ? 'Ditolak Dept Head' : 'Ditolak Logistic';
         sub.Status = S.REJECTED;
+      } else if (action === 'receive') {
+        label = 'Diterima Logistic';
+        sub.Status = S.DONE;
       } else if (action === 'cancel') {
         label = 'Dibatalkan';
         sub.Status = S.CANCELLED;
@@ -318,5 +323,23 @@ var Subs = {
       if (f.sub.FolderId) { try { Repo.trashFolder(f.sub.FolderId); } catch (e) { /* abaikan */ } }
       return { ok: true, data: { id: f.sub.ID } };
     });
+  },
+
+  // PDF formulir handover (tanda tangan basah). Hanya pengajuan yang sudah dikirim.
+  pdf: function (user, p) {
+    var f = Subs.find_(p.id);
+    var depts = Repo.allDepartments();
+    if (!f || !Workflow.canView(user, f.sub, depts)) return Subs.fail('Pengajuan tidak ditemukan.');
+    if (f.sub.Status === CFG.STATUS.DRAFT) return Subs.fail('Kirim pengajuan dulu sebelum mencetak.');
+    var view = Subs.view_(f.sub, true);
+    var users = Repo.allUsers();
+    var photos = view.photos.map(function (ph) { return Repo.readFile(ph.fileId); });
+    var html = Pdf.buildHtml({
+      view: view, photos: photos, printedBy: user.Name, printedAt: new Date(Sec.now()).toISOString(),
+      logisticHead: Pdf.headName_(CFG.LOGISTIC_DEPARTMENT, depts, users),
+      deptHead: Pdf.headName_(f.sub.Department, depts, users)
+    });
+    var number = view.number || view.id;
+    return { ok: true, data: { filename: number + '.pdf', base64: Repo.htmlToPdf(html, number) } };
   }
 };

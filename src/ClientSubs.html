@@ -393,12 +393,38 @@
         }))),
         h('div', { class: 'card' }, [h('h2', { text: 'Foto (' + v.photos.length + ')' }), thumbs]),
         actionCard(v, can),
+        v.status !== 'Draft' ? pdfCard(v) : null,
         h('div', { class: 'card' }, [h('h2', { text: 'Riwayat' })].concat((v.history || []).map(function (e) {
           return h('div', { class: 'hist' }, [h('b', { text: e.action }), ' · ' + e.byName + ' · ' + fmtDate(e.at) + (e.note ? ' · ' + e.note : '')]);
         }))),
         h('button', { class: 'secondary block', text: 'Kembali', onclick: A.viewHome })
       );
     });
+  }
+
+  // PDF formulir (tanda tangan basah). Dibuat di server, diunduh sebagai file.
+  function pdfCard(v) {
+    var msg = h('div', { class: 'muted' });
+    var slot = h('div');
+    var btn = h('button', { class: 'secondary', text: 'Cetak / Unduh PDF' });
+    btn.addEventListener('click', function () {
+      btn.disabled = true; msg.className = 'muted'; msg.textContent = 'Menyiapkan PDF...'; slot.innerHTML = '';
+      call('sub.pdf', { id: v.id }).then(function (r) {
+        btn.disabled = false;
+        if (!r.ok) { if (!sessionGuard(r)) { msg.className = 'err'; msg.textContent = r.error; } return; }
+        var bin = atob(r.data.base64), bytes = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        var url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+        var a = h('a', { href: url, download: r.data.filename, target: '_blank', rel: 'noopener', text: 'Unduh ' + r.data.filename });
+        a.style.display = 'inline-block'; a.style.marginTop = '8px';
+        slot.appendChild(a);
+        msg.className = 'okmsg'; msg.textContent = 'PDF siap. Ketuk tautan di bawah jika unduhan tidak mulai otomatis.';
+        try { a.click(); } catch (e) { /* tautan manual tetap ada */ }
+      });
+    });
+    return h('div', { class: 'card' }, [h('h2', { text: 'Formulir' }),
+      h('p', { class: 'muted', text: 'PDF A4 dengan kolom tanda tangan basah: Pemohon, Dept. Head, Logistic Staff (penerima), Logistic Dept. Head.' }),
+      btn, msg, slot]);
   }
 
   // Tombol aksi sesuai hak. Tolak wajib alasan, batal boleh beralasan.
@@ -416,7 +442,7 @@
       confirmBtn.disabled = true;
       call('sub.act', { id: v.id, action: action, note: note || '' }).then(function (r) {
         confirmBtn.disabled = false;
-        if (r.ok) { viewDetail(v.id, { approve: 'Disetujui.', reject: 'Pengajuan ditolak.', cancel: 'Pengajuan dibatalkan.', reopen: 'Dibuka kembali sebagai Draft.' }[action]); return; }
+        if (r.ok) { viewDetail(v.id, { approve: 'Disetujui.', reject: 'Pengajuan ditolak.', receive: 'Scrap dikonfirmasi diterima. Pengajuan selesai.', cancel: 'Pengajuan dibatalkan.', reopen: 'Dibuka kembali sebagai Draft.' }[action]); return; }
         if (!sessionGuard(r)) msg.textContent = r.error;
       });
     }
@@ -443,6 +469,9 @@
     } }));
     if (can('approve')) row.appendChild(h('button', { text: 'Setujui', onclick: function () {
       if (window.confirm('Setujui pengajuan ' + v.number + '?')) run('approve', '');
+    } }));
+    if (can('receive')) row.appendChild(h('button', { text: 'Konfirmasi Diterima', onclick: function () {
+      if (window.confirm('Konfirmasi scrap fisik sudah diterima? Pengajuan akan Selesai dan tidak bisa dibatalkan.')) run('receive', '');
     } }));
     if (can('reject')) row.appendChild(h('button', { class: 'secondary', text: 'Tolak', onclick: function () { askReason('reject', 'Konfirmasi tolak', true); } }));
     if (can('cancel')) row.appendChild(h('button', { class: 'secondary', text: 'Batalkan pengajuan', onclick: function () { askReason('cancel', 'Konfirmasi batal', false); } }));

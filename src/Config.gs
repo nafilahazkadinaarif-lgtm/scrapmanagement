@@ -50,6 +50,8 @@ var CFG = {
   MAX_PHOTO_B64: 2000000, // ~1,5 MB biner, foto sudah dikompres di HP
   PHOTO_FOLDER_NAME: 'Scrap Portal Photos',
   ID_PREFIX: 'SCR',
+  LOGISTIC_DEPARTMENT: 'Warehouse & Logistic', // nama departemen Logistic (untuk kolom tanda tangan PDF)
+  UTC_OFFSET_HOURS: 8, // WITA
 
   // Tabel tambahan (kolom teks tetap berformat teks agar 0 di depan dan tanggal ISO aman)
   TABLES: {

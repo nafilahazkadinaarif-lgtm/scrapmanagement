@@ -12,7 +12,7 @@ Repositori ini publik. Jangan pernah memasukkan file akun, daftar material, atau
 ## Status tahap
 
 - [x] 1. Fondasi dan login
-- [ ] 2. Form pengajuan
+- [x] 2. Form pengajuan
 - [ ] 3. Alur approval
 - [ ] 4. Konfirmasi terima dan PDF
 - [ ] 5. Rekap

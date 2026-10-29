@@ -1,0 +1,330 @@
+<script>
+(function () {
+  'use strict';
+  var A = window.App;
+  var h = A.h, mount = A.mount, call = A.call;
+  var metaCache = null;
+  var photoCache = {};
+
+  function sessionGuard(r) {
+    if (r && !r.ok && r.code === 'SESSION') { A.logout(r.error); return true; }
+    return false;
+  }
+
+  function loadMeta() {
+    if (metaCache) return Promise.resolve(metaCache);
+    return call('meta').then(function (r) {
+      if (r.ok) metaCache = r.data;
+      return r.ok ? r.data : null;
+    });
+  }
+
+  function statusChip(status) {
+    var cls = 'st';
+    if (status === 'Disetujui' || status === 'Selesai') cls += ' good';
+    else if (status === 'Ditolak' || status === 'Dibatalkan') cls += ' bad';
+    else if (status.indexOf('Menunggu') === 0) cls += ' warn';
+    return h('span', { class: cls, text: status });
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  // ---------- foto ----------
+  function compress(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var max = 1280, w = img.naturalWidth, hgt = img.naturalHeight;
+        var sc = Math.min(1, max / Math.max(w, hgt));
+        var c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(w * sc));
+        c.height = Math.max(1, Math.round(hgt * sc));
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        resolve(c.toDataURL('image/jpeg', 0.7));
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('Foto tidak bisa dibaca.')); };
+      img.src = url;
+    });
+  }
+
+  function loadPhotoInto(img, subId, fileId) {
+    var key = fileId;
+    if (photoCache[key]) { img.src = photoCache[key]; return; }
+    call('sub.photo', { id: subId, fileId: fileId }).then(function (r) {
+      if (r.ok) { photoCache[key] = r.data.dataUrl; img.src = r.data.dataUrl; }
+    });
+  }
+
+  // ---------- daftar di beranda ----------
+  function mineList(box) {
+    call('sub.list').then(function (r) {
+      box.innerHTML = '';
+      if (!r.ok) { if (!sessionGuard(r)) box.appendChild(h('p', { class: 'err', text: r.error })); return; }
+      box.appendChild(h('h2', { text: 'Pengajuan saya' }));
+      if (!r.data.length) { box.appendChild(h('p', { class: 'muted', text: 'Belum ada pengajuan.' })); return; }
+      r.data.forEach(function (s) {
+        box.appendChild(h('button', { class: 'listitem', onclick: function () { viewDetail(s.id); } }, [
+          h('span', {}, [s.number || 'Draft', ' ', statusChip(s.status)]),
+          h('small', { text: s.itemCount + ' item' + (s.firstItem ? ' · ' + s.firstItem : '') + ' · ' + fmtDate(s.updatedAt) })
+        ]));
+      });
+    });
+  }
+
+  // ---------- form ----------
+  function blankItem() { return { materialNo: '', description: '', qty: '', uom: '', uomOther: '', reason: '' }; }
+
+  function viewForm(id) {
+    mount(h('p', { class: 'muted center', text: 'Memuat...' }));
+    Promise.all([loadMeta(), id ? call('sub.get', { id: id }) : Promise.resolve(null)]).then(function (res) {
+      var meta = res[0], existing = res[1];
+      if (!meta) { mount(h('p', { class: 'err', text: 'Gagal memuat data. Coba lagi.' }), h('button', { text: 'Kembali', onclick: A.viewHome })); return; }
+      if (existing && !existing.ok) { if (!sessionGuard(existing)) viewHome(existing.error); return; }
+      var form = existing ? fromView(existing.data, meta) : { id: null, source: '', sourceOther: '', items: [blankItem()], photos: [] };
+      renderForm(meta, form);
+    });
+  }
+
+  function viewHome(msg) { A.viewHome(); if (msg) window.alert(msg); }
+
+  function fromView(v, meta) {
+    return {
+      id: v.id, source: v.source, sourceOther: v.sourceOther,
+      items: v.items.map(function (i) {
+        var known = meta.uoms.indexOf(i.uom) >= 0;
+        return {
+          materialNo: i.materialNo, description: i.description, qty: String(i.qty).replace('.', ','),
+          uom: known ? i.uom : meta.uomOther, uomOther: known ? '' : i.uom, reason: i.reason
+        };
+      }),
+      photos: v.photos.map(function (p) { return { fileId: p.fileId, name: p.name, uploaded: true }; }),
+      removed: []
+    };
+  }
+
+  function renderForm(meta, form) {
+    form.removed = form.removed || [];
+    var msg = h('div', { class: 'err' });
+    var busy = false;
+
+    function field(label, input) { return h('div', {}, [h('label', { text: label }), input]); }
+
+    function bind(input, obj, key) {
+      input.value = obj[key] || '';
+      input.addEventListener('input', function () { obj[key] = input.value; });
+      return input;
+    }
+
+    var srcSel = h('select', {}, [h('option', { value: '', text: '— pilih —' })].concat(
+      meta.sources.map(function (s) { return h('option', { value: s, text: s }); })));
+    srcSel.value = form.source;
+    var srcOther = h('input', { type: 'text', placeholder: 'Jelaskan sumber scrap' });
+    bind(srcOther, form, 'sourceOther');
+    var srcOtherBox = field('Keterangan Sumber (Other)', srcOther);
+    function syncSource() { srcOtherBox.style.display = form.source === 'Other' ? '' : 'none'; }
+    srcSel.addEventListener('change', function () { form.source = srcSel.value; syncSource(); });
+    syncSource();
+
+    var itemsBox = h('div');
+    function renderItems() {
+      itemsBox.innerHTML = '';
+      form.items.forEach(function (it, idx) {
+        var uom = h('select', {}, [h('option', { value: '', text: '— UoM —' })]
+          .concat(meta.uoms.map(function (u) { return h('option', { value: u, text: u }); }))
+          .concat([h('option', { value: meta.uomOther, text: 'Other (ketik sendiri)' })]));
+        uom.value = it.uom;
+        var uomOther = bind(h('input', { type: 'text', placeholder: 'UoM', maxlength: '20' }), it, 'uomOther');
+        var uomOtherWrap = h('div', {}, [uomOther]);
+        function syncUom() { uomOtherWrap.style.display = it.uom === meta.uomOther ? '' : 'none'; }
+        uom.addEventListener('change', function () { it.uom = uom.value; syncUom(); });
+        syncUom();
+
+        itemsBox.appendChild(h('div', { class: 'item' }, [
+          h('div', { class: 'head' }, [
+            h('b', { text: 'Item ' + (idx + 1) }),
+            form.items.length > 1 ? h('button', { class: 'secondary small', type: 'button', text: 'Hapus',
+              onclick: function () { form.items.splice(idx, 1); renderItems(); } }) : null
+          ]),
+          field('No. Material (opsional)', bind(h('input', { type: 'text', inputmode: 'numeric', maxlength: '40' }), it, 'materialNo')),
+          field('Material Description *', bind(h('input', { type: 'text', maxlength: '200' }), it, 'description')),
+          h('div', { class: 'two' }, [
+            field('Qty *', bind(h('input', { type: 'text', inputmode: 'decimal', placeholder: 'mis. 2,5' }), it, 'qty')),
+            field('UoM *', uom)
+          ]),
+          uomOtherWrap,
+          field('Scrap Reason *', bind(h('textarea', { maxlength: '500' }), it, 'reason'))
+        ]));
+      });
+    }
+    renderItems();
+
+    var thumbs = h('div', { class: 'thumbs' });
+    function renderPhotos() {
+      thumbs.innerHTML = '';
+      form.photos.forEach(function (p, idx) {
+        var img = h('img', { alt: 'foto ' + (idx + 1) });
+        if (p.dataUrl) img.src = p.dataUrl; else loadPhotoInto(img, form.id, p.fileId);
+        thumbs.appendChild(h('div', { class: 'thumb' }, [img, h('button', { type: 'button', text: '×', title: 'Hapus foto',
+          onclick: function () {
+            if (p.fileId) form.removed.push(p.fileId);
+            form.photos.splice(idx, 1); renderPhotos();
+          } })]));
+      });
+      addBtn.disabled = form.photos.length >= meta.maxPhotos;
+      count.textContent = form.photos.length + ' / ' + meta.maxPhotos + ' foto (minimal 1)';
+    }
+    var count = h('div', { class: 'muted' });
+    var file = h('input', { type: 'file', accept: 'image/*', multiple: true, style: 'display:none' });
+    var addBtn = h('button', { class: 'secondary', type: 'button', text: '+ Tambah foto', onclick: function () { file.click(); } });
+    file.addEventListener('change', function () {
+      var files = Array.prototype.slice.call(file.files);
+      file.value = '';
+      var room = meta.maxPhotos - form.photos.length;
+      if (files.length > room) { msg.textContent = 'Maksimal ' + meta.maxPhotos + ' foto.'; files = files.slice(0, Math.max(0, room)); }
+      files.reduce(function (chain, f) {
+        return chain.then(function () {
+          return compress(f).then(function (dataUrl) {
+            form.photos.push({ dataUrl: dataUrl, name: f.name });
+            renderPhotos();
+          });
+        });
+      }, Promise.resolve()).catch(function (e) { msg.textContent = e.message; });
+    });
+    renderPhotos();
+
+    function payload() {
+      return {
+        id: form.id, source: form.source, sourceOther: form.sourceOther,
+        items: form.items.map(function (i) {
+          return { materialNo: i.materialNo, description: i.description, qty: i.qty, uom: i.uom, uomOther: i.uomOther, reason: i.reason };
+        })
+      };
+    }
+
+    async function persist(submit) {
+      if (busy) return;
+      msg.className = 'err'; msg.textContent = '';
+      if (submit && !form.photos.length) { msg.textContent = 'Unggah minimal 1 foto.'; return; }
+      busy = true; setButtons(true);
+      try {
+        msg.className = 'muted'; msg.textContent = 'Menyimpan...';
+        var r = await call('sub.save', payload());
+        if (!r.ok) throw r;
+        form.id = r.data.id;
+        while (form.removed.length) {
+          var rid = form.removed[0];
+          var rr = await call('sub.removePhoto', { id: form.id, fileId: rid });
+          if (!rr.ok) throw rr;
+          form.removed.shift();
+        }
+        for (var i = 0; i < form.photos.length; i++) {
+          var p = form.photos[i];
+          if (p.uploaded) continue;
+          msg.textContent = 'Mengunggah foto ' + (i + 1) + ' dari ' + form.photos.length + '...';
+          var ur = await call('sub.addPhoto', { id: form.id, name: p.name, data: p.dataUrl });
+          if (!ur.ok) throw ur;
+          p.fileId = ur.data.fileId; p.uploaded = true;
+        }
+        if (submit) {
+          msg.textContent = 'Mengirim pengajuan...';
+          var sr = await call('sub.submit', { id: form.id });
+          if (!sr.ok) throw sr;
+        }
+        busy = false;
+        viewDetail(form.id, submit ? 'Pengajuan terkirim.' : 'Draft tersimpan.');
+      } catch (e) {
+        busy = false; setButtons(false);
+        if (e && e.code === 'SESSION') { A.logout(e.error); return; }
+        msg.className = 'err';
+        msg.textContent = (e && e.error) || (e && e.message) || 'Gagal menyimpan. Coba lagi.';
+      }
+    }
+
+    var btnDraft = h('button', { class: 'secondary', type: 'button', text: 'Simpan Draft', onclick: function () { persist(false); } });
+    var btnSend = h('button', { type: 'button', text: 'Kirim Pengajuan', onclick: function () {
+      if (window.confirm('Kirim pengajuan sekarang? Setelah dikirim tidak bisa diubah kecuali ditolak.')) persist(true);
+    } });
+    function setButtons(disabled) { btnDraft.disabled = disabled; btnSend.disabled = disabled; addBtn.disabled = disabled || form.photos.length >= meta.maxPhotos; }
+
+    mount(
+      h('div', { class: 'bar' }, [
+        h('h1', { text: form.id ? 'Ubah Draft' : 'Pengajuan Baru' }),
+        h('button', { class: 'secondary small', type: 'button', text: 'Kembali', onclick: function () {
+          if (window.confirm('Keluar dari form? Isian yang belum disimpan akan hilang.')) (form.id ? viewDetail(form.id) : A.viewHome());
+        } })
+      ]),
+      h('div', { class: 'card' }, [field('Sumber Scrap *', srcSel), srcOtherBox]),
+      h('div', { class: 'card' }, [
+        h('h2', { text: 'Item scrap' }), itemsBox,
+        h('button', { class: 'secondary', type: 'button', text: '+ Tambah item', onclick: function () {
+          if (form.items.length >= meta.maxItems) { msg.textContent = 'Maksimal ' + meta.maxItems + ' item.'; return; }
+          form.items.push(blankItem()); renderItems();
+        } })
+      ]),
+      h('div', { class: 'card' }, [h('h2', { text: 'Foto scrap *' }), thumbs, count, addBtn, file]),
+      h('div', { class: 'card' }, [msg, h('div', { class: 'row' }, [btnDraft, btnSend])])
+    );
+  }
+
+  // ---------- detail ----------
+  function viewDetail(id, notice) {
+    mount(h('p', { class: 'muted center', text: 'Memuat...' }));
+    call('sub.get', { id: id }).then(function (r) {
+      if (!r.ok) {
+        if (sessionGuard(r)) return;
+        mount(h('p', { class: 'err', text: r.error }), h('button', { text: 'Kembali', onclick: A.viewHome }));
+        return;
+      }
+      var v = r.data;
+      var mine = v.requesterNik === A.state.user.nik;
+      var actions = [h('button', { class: 'secondary', text: 'Kembali', onclick: A.viewHome })];
+      if (mine && v.status === 'Draft') {
+        actions.unshift(h('button', { text: 'Ubah / Kirim', onclick: function () { viewForm(v.id); } }));
+        actions.push(h('button', { class: 'secondary', text: 'Hapus draft', onclick: function () {
+          if (!window.confirm('Hapus draft ini?')) return;
+          call('sub.deleteDraft', { id: v.id }).then(function (d) {
+            if (d.ok) A.viewHome(); else if (!sessionGuard(d)) window.alert(d.error);
+          });
+        } }));
+      }
+
+      var thumbs = h('div', { class: 'thumbs' });
+      v.photos.forEach(function (p, i) {
+        var img = h('img', { alt: 'foto ' + (i + 1) });
+        thumbs.appendChild(h('div', { class: 'thumb' }, [img]));
+        loadPhotoInto(img, v.id, p.fileId);
+      });
+
+      mount(
+        h('div', { class: 'bar' }, [h('h1', { text: v.number || 'Draft' }), statusChip(v.status)]),
+        notice ? h('div', { class: 'okmsg', text: notice }) : null,
+        h('div', { class: 'card' }, [
+          h('p', { class: 'muted', text: v.requesterName + ' · ' + v.department }),
+          h('p', {}, ['Sumber: ', h('b', { text: v.source + (v.sourceOther ? ' (' + v.sourceOther + ')' : '') })]),
+          h('p', { class: 'muted', text: v.submittedAt ? 'Diajukan ' + fmtDate(v.submittedAt) : 'Dibuat ' + fmtDate(v.createdAt) })
+        ]),
+        h('div', { class: 'card' }, [h('h2', { text: 'Item (' + v.items.length + ')' })].concat(v.items.map(function (i) {
+          return h('div', { class: 'item' }, [
+            h('b', { text: i.line + '. ' + i.description }),
+            h('div', { class: 'muted', text: (i.materialNo ? 'No. Material ' + i.materialNo + ' · ' : '') + String(i.qty).replace('.', ',') + ' ' + i.uom }),
+            h('div', { text: 'Alasan: ' + i.reason })
+          ]);
+        }))),
+        h('div', { class: 'card' }, [h('h2', { text: 'Foto (' + v.photos.length + ')' }), thumbs]),
+        h('div', { class: 'card' }, [h('h2', { text: 'Riwayat' })].concat((v.history || []).map(function (e) {
+          return h('div', { class: 'hist' }, [h('b', { text: e.action }), ' · ' + e.byName + ' · ' + fmtDate(e.at) + (e.note ? ' · ' + e.note : '')]);
+        }))),
+        h('div', { class: 'row' }, actions)
+      );
+    });
+  }
+
+  A.subs = { mineList: mineList, viewForm: viewForm, viewDetail: viewDetail };
+})();
+</script>

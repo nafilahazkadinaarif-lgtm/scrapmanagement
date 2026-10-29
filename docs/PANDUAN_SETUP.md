@@ -1,6 +1,6 @@
 # Panduan pemasangan
 
-Panduan ini bertambah tiap tahap. Saat ini: **Tahap 1 (login dan akun)**.
+Panduan ini bertambah tiap tahap. Saat ini: **Tahap 1 (login dan akun)** dan **Tahap 2 (form pengajuan)**.
 
 ## A. Siapkan Google (sekali saja)
 
@@ -70,3 +70,29 @@ Pilih satu cara.
 - [ ] Akun biasa (bukan admin) tidak melihat menu Admin.
 - [ ] Ubah status satu akun ke No login: akun itu tidak bisa masuk.
 - [ ] Kecepatan login terasa wajar (jika lebih dari ±5 detik, kurangi `HASH_ROUNDS` di `Config.gs`).
+
+## Tambahan Tahap 2 (form pengajuan dan foto)
+
+Jika Tahap 1 sudah terpasang, lakukan ini sekali:
+
+1. Salin file baru ke Apps Script: `Validate.gs`, `Workflow.gs`, `Subs.gs`, `ClientSubs.html`. Perbarui file yang berubah: `Config.gs`, `Repo.gs`, `Router.gs`, `Setup.gs`, `Index.html`, `Client.html`, `Styles.html`. (Dengan clasp cukup `clasp push`.)
+2. Jalankan lagi **setupSheets** dari editor. Ia membuat sheet `Submissions`, `Items`, `Photos`, `History`, `UoM` (diisi daftar UoM awal) dan folder **Scrap Portal Photos** di Google Drive. Setujui izin Drive jika diminta.
+3. **Deploy → Manage deployments → pensil → Version: New version → Deploy**.
+
+Cara kerja:
+
+- Pemohon: **+ Buat Pengajuan Scrap**, isi Sumber, item (boleh banyak), foto (1-5, dikompres otomatis di HP), lalu **Simpan Draft** atau **Kirim Pengajuan**.
+- Nomor `SCR-tahun-0001` diberikan saat pertama kali dikirim. Draft belum bernomor.
+- Setelah dikirim, status menjadi **Menunggu Dept Head**. Jika pemohon Dept. Head/Division Head/Management, departemennya tanpa Dept. Head, atau Dept. Head sendiri, status langsung **Menunggu Logistic**.
+- Foto tersimpan di folder Drive (satu subfolder per pengajuan), tidak dibagikan publik. Foto hanya tampil di aplikasi untuk yang berhak melihat.
+- UoM yang diketik lewat "Other" otomatis masuk daftar pilihan (sheet `UoM`, admin bisa mengedit langsung di sheet).
+- Approval, tolak, batal, dan buka kembali hadir di Tahap 3.
+
+### Uji manual Tahap 2
+
+- [ ] Buat pengajuan 2 item (satu pakai UoM Other, Qty `2,5`) dengan 2 foto, kirim.
+- [ ] Nomor `SCR-<tahun>-0001`, status sesuai jalur. Sheet `Items`, `Photos`, `History` terisi, foto ada di Drive.
+- [ ] Draft bisa disimpan, dibuka lagi, diubah (foto dihapus/ditambah), dikirim, dihapus.
+- [ ] Qty `1,25` ditolak. Kirim tanpa foto ditolak.
+- [ ] Akun lain tidak bisa membuka pengajuan orang lain (kecuali Dept. Head departemen itu, Logistic, admin, Division Head, Management setelah dikirim).
+- [ ] Upload foto dari HP via sinyal biasa berhasil (jika sering gagal, kecilkan ukuran di `ClientSubs.html` bagian `compress`).

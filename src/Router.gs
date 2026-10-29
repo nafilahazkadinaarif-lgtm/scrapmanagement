@@ -20,6 +20,42 @@ var Router = {
       auth: 'user', allowMustChange: true,
       fn: function (ctx, p) { return Auth.changePassword(ctx.user, p.oldPassword, p.newPassword); }
     },
+    meta: {
+      auth: 'user',
+      fn: function () { return Subs.meta(); }
+    },
+    'sub.list': {
+      auth: 'user',
+      fn: function (ctx) { return Subs.list(ctx.user); }
+    },
+    'sub.get': {
+      auth: 'user',
+      fn: function (ctx, p) { return Subs.get(ctx.user, p); }
+    },
+    'sub.save': {
+      auth: 'user',
+      fn: function (ctx, p) { return Subs.save(ctx.user, p); }
+    },
+    'sub.addPhoto': {
+      auth: 'user',
+      fn: function (ctx, p) { return Subs.addPhoto(ctx.user, p); }
+    },
+    'sub.removePhoto': {
+      auth: 'user',
+      fn: function (ctx, p) { return Subs.removePhoto(ctx.user, p); }
+    },
+    'sub.photo': {
+      auth: 'user',
+      fn: function (ctx, p) { return Subs.photo(ctx.user, p); }
+    },
+    'sub.submit': {
+      auth: 'user',
+      fn: function (ctx, p) { return Subs.submit(ctx.user, p); }
+    },
+    'sub.deleteDraft': {
+      auth: 'user',
+      fn: function (ctx, p) { return Subs.deleteDraft(ctx.user, p); }
+    },
     'admin.listUsers': {
       auth: 'admin',
       fn: function () { return Admin.listUsers(); }

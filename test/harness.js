@@ -7,7 +7,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const SRC = path.join(__dirname, '..', 'src');
-const FILES = ['Config.gs', 'Sec.gs', 'Repo.gs', 'Roles.gs', 'Auth.gs', 'Admin.gs', 'Router.gs', 'Code.gs', 'Setup.gs'];
+const FILES = ['Config.gs', 'Sec.gs', 'Repo.gs', 'Roles.gs', 'Validate.gs', 'Workflow.gs', 'Auth.gs', 'Admin.gs', 'Subs.gs', 'Router.gs', 'Code.gs', 'Setup.gs'];
 
 function signedBytes(buf) {
   return Array.from(buf, (b) => (b > 127 ? b - 256 : b));
@@ -30,7 +30,11 @@ function createApp(seedUsers) {
 
   const db = {
     users: JSON.parse(JSON.stringify(seedUsers || [])),
-    departments: []
+    departments: [],
+    tables: {},
+    folders: {},
+    files: {},
+    seq: 0
   };
   const clone = (x) => JSON.parse(JSON.stringify(x));
 
@@ -49,6 +53,16 @@ function createApp(seedUsers) {
     Repo.replaceAllUsers = function (list) { __db.users = __clone(list); };
     Repo.allDepartments = function () { return __clone(__db.departments); };
     Repo.addDepartments = function (list) { __db.departments = __db.departments.concat(__clone(list)); };
+    Repo.readTable = function (n) { return __clone(__db.tables[n] || []); };
+    Repo.writeTable = function (n, rows) { __db.tables[n] = __clone(rows); };
+    Repo.appendRow = function (n, row) { (__db.tables[n] = __db.tables[n] || []).push(__clone(row)); };
+    Repo.createFolder = function (name) { var id = 'F' + (++__db.seq); __db.folders[id] = { name: name }; return id; };
+    Repo.saveFile = function (folderId, name, mime, b64) {
+      var id = 'X' + (++__db.seq); __db.files[id] = { folderId: folderId, name: name, b64: b64 }; return id;
+    };
+    Repo.readFile = function (id) { return 'data:image/jpeg;base64,' + __db.files[id].b64; };
+    Repo.trashFile = function (id) { delete __db.files[id]; };
+    Repo.trashFolder = function (id) { delete __db.folders[id]; };
   `, ctx);
 
   let clock = Date.now();

@@ -182,6 +182,8 @@
     ];
     if (u.roles.isAdmin) nav.unshift(h('button', { text: 'Admin: Pengguna', onclick: viewAdmin }));
 
+    var mine = h('div', { class: 'card' }, [h('p', { class: 'muted', text: 'Memuat pengajuan...' })]);
+
     mount(
       topBar(),
       h('div', { class: 'card' }, [
@@ -189,12 +191,11 @@
         h('p', { class: 'muted', text: 'NIK ' + u.nik + ' · ' + u.department }),
         roleChips(u)
       ]),
-      h('div', { class: 'card' }, [
-        h('h2', { text: 'Pengajuan scrap' }),
-        h('p', { class: 'muted', text: 'Form pengajuan dan approval hadir di tahap berikutnya.' })
-      ]),
+      h('button', { class: 'block', text: '+ Buat Pengajuan Scrap', onclick: function () { App.subs.viewForm(null); } }),
+      mine,
       h('div', { class: 'row' }, nav)
     );
+    App.subs.mineList(mine);
   }
 
   // ---------- admin ----------
@@ -347,7 +348,14 @@
     ]);
   }
 
-  // ---------- mulai ----------
+  // ---------- ekspor ke modul lain ----------
+  window.App = {
+    h: h, mount: mount, call: call, state: state, topBar: topBar, logout: logout,
+    viewHome: viewHome, store: store, subs: null
+  };
+
+  // ---------- mulai (setelah semua skrip termuat) ----------
+  function start() {
   var saved = store.get('token');
   if (saved) {
     state.token = saved;
@@ -363,5 +371,7 @@
   } else {
     viewLogin();
   }
+  }
+  window.addEventListener('load', start);
 })();
 </script>

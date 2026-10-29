@@ -6,6 +6,11 @@ function setupSheets() {
   var ss = Repo.db();
   ensureSheet_(ss, CFG.SHEETS.USERS, CFG.USER_COLS, CFG.USER_TEXT_COLS);
   ensureSheet_(ss, CFG.SHEETS.DEPARTMENTS, CFG.DEPT_COLS, CFG.DEPT_TEXT_COLS);
+  Object.keys(CFG.TABLES).forEach(function (name) {
+    ensureSheet_(ss, name, CFG.TABLES[name].cols, CFG.TABLES[name].text);
+  });
+  seedUoms_();
+  Repo.rootFolder_(); // folder foto di Google Drive
   Repo.getSecret();
   console.log('Selesai. Isi baris admin pertama di sheet "Users", lalu Deploy sebagai Web app.');
 }
@@ -18,4 +23,9 @@ function ensureSheet_(ss, name, cols, textCols) {
     var idx = cols.indexOf(c) + 1;
     sh.getRange(1, idx, sh.getMaxRows(), 1).setNumberFormat('@');
   });
+}
+
+function seedUoms_() {
+  if (Repo.readTable('UoM').length) return;
+  CFG.DEFAULT_UOMS.forEach(function (c) { Repo.appendRow('UoM', { Code: c }); });
 }

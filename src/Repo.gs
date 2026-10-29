@@ -109,5 +109,73 @@ var Repo = {
     var sh = Repo.sheet(CFG.SHEETS.DEPARTMENTS);
     var rows = list.map(function (d) { return CFG.DEPT_COLS.map(function (c) { return d[c] || ''; }); });
     sh.getRange(sh.getLastRow() + 1, 1, rows.length, CFG.DEPT_COLS.length).setValues(rows);
-  }
+  },
+
+  // ---- Tabel generik (Submissions, Items, Photos, History, UoM) ----
+  readTable: function (name) {
+    var spec = CFG.TABLES[name];
+    var sh = Repo.sheet(name);
+    var last = sh.getLastRow();
+    if (last < 2) return [];
+    var data = sh.getRange(2, 1, last - 1, spec.cols.length).getValues();
+    var out = [];
+    for (var i = 0; i < data.length; i++) {
+      if (String(data[i][0]).trim() === '') continue;
+      var o = {};
+      for (var j = 0; j < spec.cols.length; j++) {
+        var c = spec.cols[j], v = data[i][j];
+        if (v === null || v === undefined) v = '';
+        o[c] = spec.text.indexOf(c) >= 0 || typeof v === 'string' ? String(v).trim() : v;
+      }
+      out.push(o);
+    }
+    return out;
+  },
+
+  rowOf_: function (spec, obj) {
+    return spec.cols.map(function (c) { return obj[c] === undefined || obj[c] === null ? '' : obj[c]; });
+  },
+
+  writeTable: function (name, objs) {
+    var spec = CFG.TABLES[name];
+    var sh = Repo.sheet(name);
+    var last = sh.getLastRow();
+    if (last > 1) sh.getRange(2, 1, last - 1, spec.cols.length).clearContent();
+    if (!objs.length) return;
+    var rows = objs.map(function (o) { return Repo.rowOf_(spec, o); });
+    sh.getRange(2, 1, rows.length, spec.cols.length).setValues(rows);
+  },
+
+  appendRow: function (name, obj) {
+    var spec = CFG.TABLES[name];
+    var sh = Repo.sheet(name);
+    sh.getRange(sh.getLastRow() + 1, 1, 1, spec.cols.length).setValues([Repo.rowOf_(spec, obj)]);
+  },
+
+  // ---- Google Drive (foto) ----
+  rootFolder_: function () {
+    var props = PropertiesService.getScriptProperties();
+    var id = props.getProperty('PHOTO_FOLDER_ID');
+    if (id) {
+      try { return DriveApp.getFolderById(id); } catch (e) { /* dibuat ulang di bawah */ }
+    }
+    var f = DriveApp.createFolder(CFG.PHOTO_FOLDER_NAME);
+    props.setProperty('PHOTO_FOLDER_ID', f.getId());
+    return f;
+  },
+
+  createFolder: function (name) { return Repo.rootFolder_().createFolder(name).getId(); },
+
+  saveFile: function (folderId, name, mime, base64) {
+    var blob = Utilities.newBlob(Utilities.base64Decode(base64), mime, name);
+    return DriveApp.getFolderById(folderId).createFile(blob).getId();
+  },
+
+  readFile: function (fileId) {
+    var blob = DriveApp.getFileById(fileId).getBlob();
+    return 'data:' + blob.getContentType() + ';base64,' + Utilities.base64Encode(blob.getBytes());
+  },
+
+  trashFile: function (fileId) { DriveApp.getFileById(fileId).setTrashed(true); },
+  trashFolder: function (folderId) { DriveApp.getFolderById(folderId).setTrashed(true); }
 };

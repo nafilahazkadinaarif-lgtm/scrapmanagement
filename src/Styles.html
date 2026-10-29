@@ -23,7 +23,7 @@
   input[type=text], input[type=password], input[type=search], select, textarea {
     width: 100%; padding: 12px; font-size: 1rem; color: var(--text); background: var(--bg);
     border: 1px solid var(--line); border-radius: 10px; }
-  textarea { min-height: 90px; font-family: ui-monospace, monospace; font-size: .85rem; }
+  textarea { min-height: 90px; font-family: inherit; }
   button { font: inherit; font-weight: 600; padding: 12px 16px; border-radius: 10px; border: 0;
     background: var(--brand); color: var(--brand-text); cursor: pointer; min-height: 44px; }
   button.secondary { background: transparent; color: var(--text); border: 1px solid var(--line); }
@@ -47,4 +47,26 @@
   .check { display: flex; align-items: center; gap: 8px; font-weight: 500; margin: 8px 0; }
   .check input { width: 20px; height: 20px; }
   details summary { cursor: pointer; font-weight: 600; }
+  .item { border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin: 10px 0; }
+  .item .head { display: flex; justify-content: space-between; align-items: center; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin: 8px 0; }
+  .thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--bg);
+    border: 1px solid var(--line); }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb button { position: absolute; top: 4px; right: 4px; padding: 0; min-height: 28px; width: 28px; border-radius: 50%; }
+  .listitem { display: block; width: 100%; text-align: left; background: var(--card); color: var(--text);
+    border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 12px 0; font-weight: 500; }
+  .listitem:first-of-type { border-top: 0; }
+  .listitem small { display: block; color: var(--muted); font-weight: 400; }
+  .st { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: .78rem; background: var(--chip); }
+  .st.warn { background: #fff0cc; color: #5a4300; }
+  .st.bad { background: #fde3e1; color: #7a1712; }
+  .st.good { background: #d9f2e1; color: #0f4d27; }
+  @media (prefers-color-scheme: dark) {
+    .st.warn { background: #4a3b10; color: #ffe29a; }
+    .st.bad { background: #4d1f1c; color: #ffb4ad; }
+    .st.good { background: #17402a; color: #a8e6bf; }
+  }
+  .hist { font-size: .9rem; margin: 6px 0; }
 </style>

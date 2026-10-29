@@ -24,8 +24,13 @@ const Utilities = {
 
 function createApp(seedUsers) {
   const ctx = vm.createContext({ Utilities, console, Buffer_: Buffer });
-  for (const f of FILES) {
-    vm.runInContext(fs.readFileSync(path.join(SRC, f), 'utf8'), ctx, { filename: f });
+  if (process.env.USE_BUNDLE) {
+    // uji versi gabungan yang ditempel ke Apps Script
+    vm.runInContext(fs.readFileSync(path.join(SRC, '..', 'dist', 'Code.gs'), 'utf8'), ctx, { filename: 'dist/Code.gs' });
+  } else {
+    for (const f of FILES) {
+      vm.runInContext(fs.readFileSync(path.join(SRC, f), 'utf8'), ctx, { filename: f });
+    }
   }
 
   const db = {

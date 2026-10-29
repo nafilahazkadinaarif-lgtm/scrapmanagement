@@ -4,6 +4,8 @@
   "private": true,
   "description": "Scrap Handover Portal - PT DSSP Power Kendari (Google Apps Script)",
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "build": "node tools/build-bundle.js",
+    "test": "node --test test/*.test.js",
+    "test:bundle": "USE_BUNDLE=1 node --test test/*.test.js"
   }
 }

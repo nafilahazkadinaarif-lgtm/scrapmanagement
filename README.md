@@ -4,8 +4,9 @@ Web handover scrap material, PT DSSP Power Kendari. Google Apps Script + Google 
 
 - Spesifikasi: [docs/SPESIFIKASI.md](docs/SPESIFIKASI.md)
 - Pemasangan: [docs/PANDUAN_SETUP.md](docs/PANDUAN_SETUP.md)
-- Kode aplikasi: `src/` (file `.gs` dan `.html` untuk Apps Script)
-- Tes otomatis logika inti: `npm test` (Node 20+, tanpa dependensi)
+- Kode aplikasi: `src/` (sumber, per file). **Untuk dipasang: `dist/`** (3 file hasil gabungan: `Code.gs`, `Index.html`, `appsscript.json`)
+- Tes otomatis logika inti: `npm test`; tes versi gabungan: `npm run test:bundle` (Node 20+, tanpa dependensi)
+- Setelah mengubah `src/`, jalankan `npm run build` untuk memperbarui `dist/` (tes `npm test` gagal jika `dist/` kedaluwarsa)
 
 Repositori ini publik. Jangan pernah memasukkan file akun, daftar material, atau data pribadi lain ke repositori. Data diimpor lewat halaman admin ke Google Sheet.
 

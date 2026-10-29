@@ -1,6 +1,14 @@
 # Panduan pemasangan
 
-Panduan ini bertambah tiap tahap. Saat ini: **Tahap 1 (login dan akun)** dan **Tahap 2 (form pengajuan)**, **Tahap 3 (alur approval)**, dan **Tahap 4 (konfirmasi terima dan PDF)**, **Tahap 5 (rekap)**, dan **Tahap 6 (material SAP, cadangan, penutup)**.
+Panduan ini untuk **pemasangan baru** langsung dengan versi lengkap (Tahap 1 sampai 6). Bagian "Tahap 2" sampai "Tahap 6" di bawah hanya penjelasan fitur dan daftar uji tiap tahap, bukan langkah pemasangan tambahan.
+
+Anda hanya perlu **3 file** dari folder [`dist/`](../dist) di repositori:
+
+| File di GitHub | Jadi apa di Apps Script |
+|---|---|
+| `dist/Code.gs` | file Script bernama `Code` (berisi seluruh logika) |
+| `dist/Index.html` | file HTML bernama `Index` (berisi seluruh tampilan) |
+| `dist/appsscript.json` | file pengaturan `appsscript.json` |
 
 ## A. Siapkan Google (sekali saja)
 
@@ -8,27 +16,33 @@ Panduan ini bertambah tiap tahap. Saat ini: **Tahap 1 (login dan akun)** dan **T
 2. Buka Google Sheets, buat spreadsheet kosong bernama **Scrap Portal DB**.
 3. Menu **Extensions → Apps Script**. Project terbuka (terikat ke spreadsheet itu).
 
-## B. Pasang kode
+## B. Pasang kode (3 tempelan)
 
-Pilih satu cara.
+Untuk menyalin: buka file di GitHub, klik ikon **Copy raw file** (dua kotak bertumpuk di kanan atas isi file), lalu tempel di Apps Script.
 
-**Cara 1: salin manual (tanpa install apa pun)**
-1. Hapus isi `Code.gs` bawaan. Ganti nama file menjadi `Code`.
-2. Untuk setiap file di folder `src/` buat file baru di Apps Script dengan nama sama dan isi sama:
-   - Script (`+ → Script`): `Config`, `Sec`, `Repo`, `Roles`, `Auth`, `Admin`, `Router`, `Setup`, `Code`
-   - HTML (`+ → HTML`): `Index`, `Styles`, `Client`
-3. **Project Settings** (ikon roda gigi) → centang **Show "appsscript.json" manifest file**. Buka `appsscript.json`, ganti isinya dengan isi `src/appsscript.json`.
+**Tempelan 1: `Code.gs`**
+1. Di panel kiri Apps Script, buka file `Code.gs` bawaan Google. Hapus seluruh isinya.
+2. Salin isi `dist/Code.gs` dari GitHub, tempel di sana.
+3. Klik ikon disket (**Save**).
 
-**Cara 2: clasp (untuk pembaruan lebih cepat)**
-1. `npm i -g @google/clasp`, lalu `clasp login`.
-2. Salin `.clasp.json.example` menjadi `.clasp.json`, isi `scriptId` (Project Settings → Script ID).
-3. `clasp push`.
+**Tempelan 2: `Index.html`**
+1. Klik **+** di sebelah "Files" → pilih **HTML**. Ketik nama `Index` (tanpa `.html`), Enter.
+2. Hapus isi bawaan, salin isi `dist/Index.html`, tempel. **Save**.
+
+**Tempelan 3: `appsscript.json`**
+1. Klik ikon roda gigi (**Project Settings**) di kiri, centang **Show "appsscript.json" manifest file in editor**.
+2. Kembali ke **Editor** (ikon `< >`), buka `appsscript.json`. Hapus isinya, salin isi `dist/appsscript.json`, tempel. **Save**.
+
+Selesai. Di panel Files kini ada 3 file: `Code.gs`, `Index.html`, `appsscript.json`.
+
+Cara alternatif untuk pengguna mahir: `clasp` (`npm i -g @google/clasp`, `clasp login`, salin `.clasp.json.example` menjadi `.clasp.json` dan isi `scriptId`, lalu `clasp push`). Ini memakai folder `src/` per file, bukan `dist/`.
 
 ## C. Buat tabel dan admin pertama
 
-1. Di editor Apps Script pilih fungsi **setupSheets**, klik **Run**, setujui izin akses Google (muncul peringatan "belum diverifikasi": pilih *Advanced → Go to ... (unsafe)*, itu aplikasi Anda sendiri).
-2. Di spreadsheet muncul sheet `Users` dan `Departments`.
-3. Di sheet `Users`, isi **satu baris** admin pertama (baris 2). Kolom lain biarkan kosong:
+1. Di editor, pilih fungsi **setupSheets** pada menu dropdown di atas editor, klik **Run**. Setujui izin akses Google (muncul peringatan "belum diverifikasi": pilih *Advanced → Go to ... (unsafe)*, itu aplikasi Anda sendiri).
+2. Di spreadsheet muncul sheet `Users`, `Departments`, `Submissions`, `Items`, `Photos`, `History`, `UoM` (terisi daftar awal), dan `Materials`. Di Google Drive muncul folder **Scrap Portal Photos**.
+3. Pilih fungsi **installWeeklyBackup**, klik **Run**, setujui izinnya (cadangan otomatis tiap Senin dini hari).
+4. Di sheet `Users`, isi **satu baris** admin pertama (baris 2). Kolom lain biarkan kosong:
 
    | NIK | Name | Nickname | Department | Level | Role | Status |
    |---|---|---|---|---|---|---|
@@ -42,7 +56,7 @@ Pilih satu cara.
 2. *Execute as*: **Me**. *Who has access*: **Anyone**.
    (Tetap aman: siapa pun yang punya tautan hanya melihat halaman login. Data hanya terbuka setelah login NIK dan password.)
 3. **Deploy**, salin URL web app. Kirim URL ini ke pengguna. Di HP: buka di Chrome → menu → *Add to Home screen*.
-4. Setiap kali kode diubah: **Deploy → Manage deployments → ikon pensil → Version: New version → Deploy**. URL tetap sama.
+4. Setiap kali kode diubah (misalnya ada pembaruan dari saya): tempel ulang `dist/Code.gs` dan `dist/Index.html` (hapus isi lama dulu), **Save**, lalu **Deploy → Manage deployments → ikon pensil → Version: New version → Deploy**. URL tetap sama. Jika pembaruan menambah sheet, jalankan **setupSheets** lagi (aman, tidak menghapus data).
 
 ## E. Pemakaian pertama
 
@@ -71,13 +85,11 @@ Pilih satu cara.
 - [ ] Ubah status satu akun ke No login: akun itu tidak bisa masuk.
 - [ ] Kecepatan login terasa wajar (jika lebih dari ±5 detik, kurangi `HASH_ROUNDS` di `Config.gs`).
 
-## Tambahan Tahap 2 (form pengajuan dan foto)
+## Fitur dan uji per tahap
 
-Jika Tahap 1 sudah terpasang, lakukan ini sekali:
+Ujilah setelah bagian A sampai D selesai.
 
-1. Salin file baru ke Apps Script: `Validate.gs`, `Workflow.gs`, `Subs.gs`, `ClientSubs.html`. Perbarui file yang berubah: `Config.gs`, `Repo.gs`, `Router.gs`, `Setup.gs`, `Index.html`, `Client.html`, `Styles.html`. (Dengan clasp cukup `clasp push`.)
-2. Jalankan lagi **setupSheets** dari editor. Ia membuat sheet `Submissions`, `Items`, `Photos`, `History`, `UoM` (diisi daftar UoM awal) dan folder **Scrap Portal Photos** di Google Drive. Setujui izin Drive jika diminta.
-3. **Deploy → Manage deployments → pensil → Version: New version → Deploy**.
+## Tahap 2 (form pengajuan dan foto)
 
 Cara kerja:
 
@@ -97,13 +109,8 @@ Cara kerja:
 - [ ] Akun lain tidak bisa membuka pengajuan orang lain (kecuali Dept. Head departemen itu, Logistic, admin, Division Head, Management setelah dikirim).
 - [ ] Upload foto dari HP via sinyal biasa berhasil (jika sering gagal, kecilkan ukuran di `ClientSubs.html` bagian `compress`).
 
-## Tambahan Tahap 3 (alur approval)
+## Tahap 3 (alur approval)
 
-Tidak ada sheet baru. Salin file baru dan yang berubah, lalu terbitkan versi baru:
-
-- File baru: `Dept.gs`.
-- File berubah: `Workflow.gs`, `Subs.gs`, `Router.gs`, `Repo.gs`, `Client.html`, `ClientSubs.html`.
-- **Deploy → Manage deployments → pensil → Version: New version → Deploy**.
 
 Aturan:
 
@@ -127,13 +134,8 @@ Aturan:
 - [ ] Logistic Staff mengajukan sendiri: tidak muncul di antreannya, tombol Setujui tidak ada. Logistic lain bisa.
 - [ ] Rekan sedepartemen tidak bisa membuka pengajuan orang lain.
 
-## Tambahan Tahap 4 (konfirmasi terima dan PDF)
+## Tahap 4 (konfirmasi terima dan PDF)
 
-Tidak ada sheet baru. Salin file baru dan yang berubah, lalu terbitkan versi baru:
-
-- File baru: `Pdf.gs`.
-- File berubah: `Config.gs`, `Repo.gs`, `Workflow.gs`, `Subs.gs`, `Router.gs`, `ClientSubs.html`.
-- **Deploy → Manage deployments → pensil → Version: New version → Deploy**.
 
 Aturan:
 
@@ -150,13 +152,8 @@ Aturan:
 - [ ] Cetak PDF, tanda tangan basah di kertas.
 - [ ] Rekan yang tidak berhak tidak bisa mengunduh PDF pengajuan orang lain.
 
-## Tambahan Tahap 5 (rekap)
+## Tahap 5 (rekap)
 
-Tidak ada sheet baru. Salin file baru dan yang berubah, lalu terbitkan versi baru:
-
-- File baru: `Report.gs`, `ClientReport.html`.
-- File berubah: `Router.gs`, `Index.html`, `Client.html`, `Styles.html`, `Config.gs`.
-- **Deploy → Manage deployments → pensil → Version: New version → Deploy**.
 
 Cara pakai: menu **Rekap** di beranda (untuk Dept. Head, Logistic Staff, Admin, Division Head, Management). Pilih tahun, bulan (atau setahun penuh), dan status.
 
@@ -172,15 +169,8 @@ Cara pakai: menu **Rekap** di beranda (untuk Dept. Head, Logistic Staff, Admin, 
 - [ ] Ekspor Excel terunduh dari HP/laptop dan terbuka di Excel (3 sheet).
 - [ ] Dept. Head hanya melihat departemennya. Logistic melihat semua.
 
-## Tambahan Tahap 6 (material SAP dan cadangan)
+## Tahap 6 (material SAP dan cadangan)
 
-Salin file baru dan yang berubah, lalu terbitkan versi baru:
-
-- File baru: `Backup.gs`.
-- File berubah: `Config.gs`, `Repo.gs`, `Admin.gs`, `Subs.gs`, `Router.gs`, `Setup.gs`, `Client.html`, `ClientSubs.html`, `appsscript.json` (tambahan izin untuk jadwal otomatis).
-- Jalankan lagi **setupSheets** (membuat sheet `Materials`). Setujui izin baru jika Google meminta.
-- Jalankan **installWeeklyBackup** sekali dari editor (cadangan otomatis tiap Senin dini hari). Setujui izin jadwal.
-- **Deploy → Manage deployments → pensil → Version: New version → Deploy**.
 
 Cara kerja:
 

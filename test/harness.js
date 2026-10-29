@@ -1,0 +1,75 @@
+'use strict';
+// Memuat file .gs ke konteks vm dengan tiruan Utilities dan Repo (memori),
+// sehingga logika inti bisa diuji tanpa Google.
+const vm = require('node:vm');
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+
+const SRC = path.join(__dirname, '..', 'src');
+const FILES = ['Config.gs', 'Sec.gs', 'Repo.gs', 'Roles.gs', 'Auth.gs', 'Admin.gs', 'Router.gs', 'Code.gs', 'Setup.gs'];
+
+function signedBytes(buf) {
+  return Array.from(buf, (b) => (b > 127 ? b - 256 : b));
+}
+
+const Utilities = {
+  DigestAlgorithm: { SHA_256: 'sha256' },
+  Charset: { UTF_8: 'utf8' },
+  computeDigest: (alg, value) => signedBytes(crypto.createHash('sha256').update(String(value), 'utf8').digest()),
+  computeHmacSha256Signature: (value, key) =>
+    signedBytes(crypto.createHmac('sha256', String(key)).update(String(value), 'utf8').digest()),
+  getUuid: () => crypto.randomUUID()
+};
+
+function createApp(seedUsers) {
+  const ctx = vm.createContext({ Utilities, console });
+  for (const f of FILES) {
+    vm.runInContext(fs.readFileSync(path.join(SRC, f), 'utf8'), ctx, { filename: f });
+  }
+
+  const db = {
+    users: JSON.parse(JSON.stringify(seedUsers || [])),
+    departments: []
+  };
+  const clone = (x) => JSON.parse(JSON.stringify(x));
+
+  // Ganti Repo dengan versi memori
+  ctx.__db = db;
+  ctx.__clone = clone;
+  vm.runInContext(`
+    Repo.withLock = function (fn) { return fn(); };
+    Repo.getSecret = function () { return 'test-secret'; };
+    Repo.allUsers = function () { return __clone(__db.users); };
+    Repo.saveUser = function (u) {
+      var c = __clone(u);
+      var i = __db.users.findIndex(function (x) { return x.NIK === c.NIK; });
+      if (i >= 0) __db.users[i] = c; else __db.users.push(c);
+    };
+    Repo.replaceAllUsers = function (list) { __db.users = __clone(list); };
+    Repo.allDepartments = function () { return __clone(__db.departments); };
+    Repo.addDepartments = function (list) { __db.departments = __db.departments.concat(__clone(list)); };
+  `, ctx);
+
+  let clock = Date.now();
+  ctx.__clock = () => clock;
+  vm.runInContext('Sec.now = function () { return __clock(); };', ctx);
+
+  return {
+    ctx,
+    db,
+    advance: (ms) => { clock += ms; },
+    call: (action, token, payload) => clone(ctx.Router.handle(action, token, payload)),
+    eval: (code) => vm.runInContext(code, ctx)
+  };
+}
+
+function user(over) {
+  return Object.assign({
+    NIK: '100001', Name: 'Budi Santoso', Nickname: 'Budi S.', Email: '', DeptCode: 'MMM',
+    Department: 'Mechanical Maintenance', Level: '1. User Non Planner', Role: 'User', Status: 'Active',
+    IsLogistic: false, PassHash: '', PassSalt: '', MustChange: false, FailCount: 0, LockUntil: 0, LastLogin: ''
+  }, over || {});
+}
+
+module.exports = { createApp, user };

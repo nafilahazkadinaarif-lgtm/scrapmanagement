@@ -1,0 +1,367 @@
+<script>
+(function () {
+  'use strict';
+
+  var XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  var state = { token: null, user: null, users: [], filter: '' };
+  var app = document.getElementById('app');
+
+  // ---------- util ----------
+  var store = {
+    get: function (k) { try { return window.localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { window.localStorage.setItem(k, v); } catch (e) { /* abaikan */ } },
+    del: function (k) { try { window.localStorage.removeItem(k); } catch (e) { /* abaikan */ } }
+  };
+
+  function h(tag, attrs, kids) {
+    var el = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      var v = attrs[k];
+      if (k === 'class') el.className = v;
+      else if (k === 'text') el.textContent = v;
+      else if (k.indexOf('on') === 0) el.addEventListener(k.slice(2), v);
+      else if (v === true) el.setAttribute(k, '');
+      else if (v !== false && v !== null && v !== undefined) el.setAttribute(k, v);
+    });
+    (kids || []).forEach(function (c) {
+      if (c === null || c === undefined) return;
+      el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    });
+    return el;
+  }
+
+  function mount() {
+    app.innerHTML = '';
+    for (var i = 0; i < arguments.length; i++) app.appendChild(arguments[i]);
+  }
+
+  function call(action, payload) {
+    return new Promise(function (resolve) {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(function () {
+          resolve({ ok: false, code: 'NET', error: 'Koneksi gagal. Periksa sinyal lalu coba lagi.' });
+        })
+        .api(action, state.token, payload || {});
+    });
+  }
+
+  // Jalankan aksi dengan tombol terkunci; sesi habis -> kembali ke login
+  function guarded(btn, fn) {
+    btn.disabled = true;
+    return fn().then(function (r) {
+      btn.disabled = false;
+      if (r && !r.ok && (r.code === 'SESSION')) { logout(r.error); }
+      return r;
+    });
+  }
+
+  function setSession(data) {
+    state.token = data.token;
+    state.user = data.user;
+    store.set('token', data.token);
+  }
+
+  function logout(message) {
+    state.token = null; state.user = null; state.users = [];
+    store.del('token');
+    viewLogin(message);
+  }
+
+  // ---------- login ----------
+  function viewLogin(notice) {
+    var q = h('input', { type: 'search', placeholder: 'Ketik nama Anda', autocomplete: 'off' });
+    var list = h('ul', { class: 'sugg' });
+    var nik = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'username', placeholder: 'NIK' });
+    var pw = h('input', { type: 'password', autocomplete: 'current-password', placeholder: 'Password' });
+    var err = h('div', { class: 'err', text: notice || '' });
+    var btn = h('button', { class: 'block', type: 'submit', text: 'Masuk' });
+    var timer = null;
+
+    function renderSuggestions(items) {
+      list.innerHTML = '';
+      list.style.display = items.length ? '' : 'none';
+      items.forEach(function (it) {
+        list.appendChild(h('li', {}, [h('button', {
+          type: 'button',
+          onclick: function () { nik.value = it.nik; q.value = it.name; list.innerHTML = ''; list.style.display = 'none'; pw.focus(); }
+        }, [it.name, h('small', { text: 'NIK ' + it.nik + ' · ' + it.department })])]));
+      });
+    }
+    renderSuggestions([]);
+
+    q.addEventListener('input', function () {
+      clearTimeout(timer);
+      var text = q.value.trim();
+      if (text.length < 3) { renderSuggestions([]); return; }
+      timer = setTimeout(function () {
+        call('suggest', { q: text }).then(function (r) { renderSuggestions(r.ok ? r.data : []); });
+      }, 300);
+    });
+
+    var form = h('form', { class: 'card', onsubmit: function (e) {
+      e.preventDefault();
+      err.textContent = '';
+      guarded(btn, function () { return call('login', { nik: nik.value, password: pw.value }); })
+        .then(function (r) {
+          if (!r.ok) { if (r.code !== 'SESSION') err.textContent = r.error; return; }
+          setSession(r.data);
+          r.data.user.mustChange ? viewChangePassword(true) : viewHome();
+        });
+    } }, [
+      h('label', { text: 'Lupa NIK? Cari nama' }), q, list,
+      h('label', { text: 'NIK' }), nik,
+      h('label', { text: 'Password' }), pw,
+      err, btn
+    ]);
+
+    mount(
+      h('h1', { text: 'Scrap Handover Portal' }),
+      h('p', { class: 'muted', text: 'PT DSSP Power Kendari' }),
+      form
+    );
+  }
+
+  // ---------- ganti password ----------
+  function viewChangePassword(forced) {
+    var oldPw = h('input', { type: 'password', autocomplete: 'current-password' });
+    var newPw = h('input', { type: 'password', autocomplete: 'new-password' });
+    var again = h('input', { type: 'password', autocomplete: 'new-password' });
+    var err = h('div', { class: 'err' });
+    var btn = h('button', { class: 'block', type: 'submit', text: 'Simpan password' });
+
+    var form = h('form', { class: 'card', onsubmit: function (e) {
+      e.preventDefault();
+      err.textContent = '';
+      if (newPw.value !== again.value) { err.textContent = 'Konfirmasi password tidak sama.'; return; }
+      guarded(btn, function () {
+        return call('changePassword', { oldPassword: oldPw.value, newPassword: newPw.value });
+      }).then(function (r) {
+        if (!r.ok) { if (r.code !== 'SESSION') err.textContent = r.error; return; }
+        setSession(r.data);
+        viewHome();
+      });
+    } }, [
+      h('label', { text: forced ? 'Password awal' : 'Password lama' }), oldPw,
+      h('label', { text: 'Password baru (min. 8 karakter)' }), newPw,
+      h('label', { text: 'Ulangi password baru' }), again,
+      err, btn,
+      forced ? null : h('button', { class: 'secondary block', type: 'button', text: 'Batal', onclick: viewHome })
+    ]);
+
+    mount(
+      h('h1', { text: forced ? 'Ganti password dulu' : 'Ganti password' }),
+      forced ? h('p', { class: 'muted', text: 'Ini login pertama (atau password direset). Buat password baru sebelum lanjut.' }) : null,
+      form
+    );
+  }
+
+  // ---------- beranda ----------
+  function topBar() {
+    return h('div', { class: 'bar' }, [
+      h('h1', { text: 'Scrap Handover Portal' }),
+      h('button', { class: 'secondary small', text: 'Keluar', onclick: function () { logout(); } })
+    ]);
+  }
+
+  function roleChips(u) {
+    var r = u.roles, chips = [];
+    if (r.isDeptHead) chips.push('Dept. Head');
+    if (r.isDivisionHead) chips.push('Division Head');
+    if (r.isManagement) chips.push('Management');
+    if (r.isLogistic) chips.push('Logistic Staff');
+    if (r.isAdmin) chips.push(r.isSuperAdmin ? 'Super Admin' : 'Admin');
+    if (!chips.length) chips.push('Pemohon');
+    return h('div', { class: 'row' }, chips.map(function (c) { return h('span', { class: 'chip', text: c }); }));
+  }
+
+  function viewHome() {
+    var u = state.user;
+    var nav = [
+      h('button', { class: 'secondary', text: 'Ganti password', onclick: function () { viewChangePassword(false); } })
+    ];
+    if (u.roles.isAdmin) nav.unshift(h('button', { text: 'Admin: Pengguna', onclick: viewAdmin }));
+
+    mount(
+      topBar(),
+      h('div', { class: 'card' }, [
+        h('h2', { text: u.name }),
+        h('p', { class: 'muted', text: 'NIK ' + u.nik + ' · ' + u.department }),
+        roleChips(u)
+      ]),
+      h('div', { class: 'card' }, [
+        h('h2', { text: 'Pengajuan scrap' }),
+        h('p', { class: 'muted', text: 'Form pengajuan dan approval hadir di tahap berikutnya.' })
+      ]),
+      h('div', { class: 'row' }, nav)
+    );
+  }
+
+  // ---------- admin ----------
+  function viewAdmin() {
+    var listBox = h('div', { class: 'card' }, [h('p', { class: 'muted', text: 'Memuat akun...' })]);
+    var search = h('input', { type: 'search', placeholder: 'Cari nama / NIK / departemen', value: state.filter });
+    search.addEventListener('input', function () { state.filter = search.value; renderUsers(listBox); });
+
+    mount(
+      h('div', { class: 'bar' }, [
+        h('h1', { text: 'Admin: Pengguna' }),
+        h('button', { class: 'secondary small', text: 'Kembali', onclick: viewHome })
+      ]),
+      importCard(listBox),
+      h('div', { class: 'card' }, [h('label', { text: 'Cari akun' }), search]),
+      listBox
+    );
+    loadUsers(listBox);
+  }
+
+  function loadUsers(listBox) {
+    call('admin.listUsers').then(function (r) {
+      if (!r.ok) { if (r.code === 'SESSION') logout(r.error); else listBox.textContent = r.error; return; }
+      state.users = r.data;
+      renderUsers(listBox);
+    });
+  }
+
+  function renderUsers(box) {
+    var f = state.filter.trim().toLowerCase();
+    var shown = state.users.filter(function (u) {
+      return !f || (u.name + ' ' + u.nickname + ' ' + u.nik + ' ' + u.department).toLowerCase().indexOf(f) >= 0;
+    });
+    box.innerHTML = '';
+    box.appendChild(h('p', { class: 'muted', text: shown.length + ' dari ' + state.users.length + ' akun' }));
+    shown.slice(0, 100).forEach(function (u) { box.appendChild(userRow(u)); });
+    if (shown.length > 100) box.appendChild(h('p', { class: 'muted', text: 'Menampilkan 100 pertama. Persempit pencarian.' }));
+  }
+
+  function userRow(u) {
+    var msg = h('div', { class: 'muted' });
+    var status = h('select', {}, ['Active', 'No login'].map(function (s) {
+      return h('option', { value: s, text: s, selected: u.status === s });
+    }));
+    var logi = h('input', { type: 'checkbox', checked: u.isLogistic });
+
+    function save(patch, el) {
+      patch.nik = u.nik;
+      el.disabled = true;
+      call('admin.updateUser', patch).then(function (r) {
+        el.disabled = false;
+        if (r.ok) { Object.assign(u, r.data); msg.textContent = 'Tersimpan.'; }
+        else {
+          if (r.code === 'SESSION') { logout(r.error); return; }
+          msg.textContent = r.error;
+          status.value = u.status; logi.checked = u.isLogistic;
+        }
+      });
+    }
+    status.addEventListener('change', function () { save({ status: status.value }, status); });
+    logi.addEventListener('change', function () { save({ isLogistic: logi.checked }, logi); });
+
+    var reset = h('button', { class: 'secondary small', text: 'Reset password', onclick: function () {
+      if (!window.confirm('Reset password ' + u.name + ' ke password awal?')) return;
+      reset.disabled = true;
+      call('admin.resetPassword', { nik: u.nik }).then(function (r) {
+        reset.disabled = false;
+        if (r.code === 'SESSION') { logout(r.error); return; }
+        msg.textContent = r.ok ? 'Password direset ke password awal.' : r.error;
+      });
+    } });
+
+    return h('div', { class: 'user' }, [
+      h('b', { text: u.name }),
+      h('span', { class: 'muted', text: 'NIK ' + u.nik + ' · ' + u.department + ' · ' + u.level + ' · ' + u.role +
+        (u.locked ? ' · TERKUNCI' : '') }),
+      h('div', { class: 'row' }, [status, h('label', { class: 'check' }, [logi, 'Logistic Staff']), reset]),
+      msg
+    ]);
+  }
+
+  function importCard(listBox) {
+    var file = h('input', { type: 'file', accept: '.xlsx,.xls,.csv' });
+    var paste = h('textarea', { placeholder: 'Atau tempel isi tabel dari Excel di sini (baris pertama = judul kolom)' });
+    var over = h('input', { type: 'checkbox' });
+    var out = h('div', { class: 'muted' });
+    var btn = h('button', { class: 'block', text: 'Impor akun' });
+
+    function loadXlsx() {
+      if (window.XLSX) return Promise.resolve();
+      return new Promise(function (ok, bad) {
+        var s = document.createElement('script');
+        s.src = XLSX_URL; s.onload = ok;
+        s.onerror = function () { bad(new Error('Gagal memuat pembaca Excel. Pakai kotak tempel.')); };
+        document.head.appendChild(s);
+      });
+    }
+
+    function rowsFromPaste(text) {
+      var lines = text.replace(/\r/g, '').split('\n').filter(function (l) { return l.trim(); });
+      if (lines.length < 2) return [];
+      var head = lines[0].split('\t');
+      return lines.slice(1).map(function (l) {
+        var cells = l.split('\t'), o = {};
+        head.forEach(function (k, i) { o[k.trim()] = (cells[i] || '').trim(); });
+        return o;
+      });
+    }
+
+    function rowsFromFile(f) {
+      return loadXlsx().then(function () {
+        return f.arrayBuffer();
+      }).then(function (buf) {
+        var wb = window.XLSX.read(buf, { type: 'array' });
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        return window.XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+      });
+    }
+
+    btn.addEventListener('click', function () {
+      out.className = 'muted'; out.textContent = 'Membaca file...';
+      var source = file.files[0] ? rowsFromFile(file.files[0]) : Promise.resolve(rowsFromPaste(paste.value));
+      btn.disabled = true;
+      source.then(function (rows) {
+        if (!rows.length) throw new Error('Tidak ada data. Pilih file atau tempel tabel.');
+        out.textContent = 'Mengimpor ' + rows.length + ' baris...';
+        return call('admin.importUsers', { rows: rows, overwriteStatusRole: over.checked });
+      }).then(function (r) {
+        btn.disabled = false;
+        if (r.code === 'SESSION') { logout(r.error); return; }
+        if (!r.ok) { out.className = 'err'; out.textContent = r.error; return; }
+        var d = r.data;
+        out.className = 'okmsg';
+        out.textContent = 'Baru: ' + d.added + ' · Diperbarui: ' + d.updated + ' · Dikecualikan (akun uji): ' + d.excluded +
+          ' · Dilewati: ' + d.skipped.length + ' · Departemen baru: ' + d.departmentsAdded +
+          (d.skipped.length ? '\n' + d.skipped.slice(0, 5).map(function (s) { return 'Baris ' + s.row + ': ' + s.reason; }).join('\n') : '');
+        out.style.whiteSpace = 'pre-line';
+        loadUsers(listBox);
+      }).catch(function (e) {
+        btn.disabled = false; out.className = 'err'; out.textContent = e.message;
+      });
+    });
+
+    return h('details', { class: 'card' }, [
+      h('summary', { text: 'Impor akun dari Excel' }),
+      h('p', { class: 'muted', text: 'Kolom: Name, Nickname, Email, NIK, Dept Code, Department, Level, Role, Status. Akun baru memakai password awal dan wajib menggantinya.' }),
+      file, paste,
+      h('label', { class: 'check' }, [over, 'Timpa Status dan Role akun lama dari file']),
+      btn, out
+    ]);
+  }
+
+  // ---------- mulai ----------
+  var saved = store.get('token');
+  if (saved) {
+    state.token = saved;
+    call('me').then(function (r) {
+      if (r.ok) {
+        state.user = r.data.user;
+        state.user.mustChange ? viewChangePassword(true) : viewHome();
+      } else {
+        state.token = null; store.del('token');
+        viewLogin(r.code === 'SESSION' ? '' : r.error);
+      }
+    });
+  } else {
+    viewLogin();
+  }
+})();
+</script>

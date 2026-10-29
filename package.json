@@ -1,0 +1,9 @@
+{
+  "name": "scrapmanagement",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Scrap Handover Portal - PT DSSP Power Kendari (Google Apps Script)",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
+}

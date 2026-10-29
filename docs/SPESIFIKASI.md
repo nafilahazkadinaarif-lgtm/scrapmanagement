@@ -76,7 +76,7 @@ Cabang: `Ditolak` (alasan wajib), `Dibatalkan`.
 - Terkunci 15 menit setelah 5 kali salah. Admin bisa reset ke password awal.
 - Status "No login" tidak bisa masuk. Admin bisa mengubah status.
 - Sesi berakhir otomatis setelah 8 jam.
-- Akun uji (Test Dept, Test User, Administrator) tidak ikut diimpor.
+- Akun uji (Test Dept, Test Planner, Test User, Administrator) tidak ikut diimpor.
 - Catatan: saran nama membuka NIK ke siapa pun yang mengetik nama. Risiko ini diterima karena password awal sama untuk semua. Mitigasi: wajib ganti password.
 
 ## 7. Halaman

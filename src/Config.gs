@@ -29,7 +29,7 @@ var CFG = {
   DEFAULT_LEVEL: '1. User Non Planner',
 
   // Akun uji tidak ikut diimpor
-  IMPORT_EXCLUDE_NAMES: ['Test Dept', 'Test User', 'Administrator'],
+  IMPORT_EXCLUDE_NAMES: ['Test Dept', 'Test Planner', 'Test User', 'Administrator'],
 
   // ---- Pengajuan scrap ----
   SOURCES: ['Outage', 'Project', 'Routine Usage', 'Other'],

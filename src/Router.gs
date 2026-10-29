@@ -76,6 +76,10 @@ var Router = {
       auth: 'user',
       fn: function (ctx, p) { return Subs.pdf(ctx.user, p); }
     },
+    report: {
+      auth: 'user',
+      fn: function (ctx, p) { return Report.build(ctx.user, p); }
+    },
     'sub.deleteDraft': {
       auth: 'user',
       fn: function (ctx, p) { return Subs.deleteDraft(ctx.user, p); }

@@ -7,7 +7,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const SRC = path.join(__dirname, '..', 'src');
-const FILES = ['Config.gs', 'Sec.gs', 'Repo.gs', 'Roles.gs', 'Validate.gs', 'Workflow.gs', 'Auth.gs', 'Admin.gs', 'Pdf.gs', 'Subs.gs', 'Dept.gs', 'Router.gs', 'Code.gs', 'Setup.gs'];
+const FILES = ['Config.gs', 'Sec.gs', 'Repo.gs', 'Roles.gs', 'Validate.gs', 'Workflow.gs', 'Auth.gs', 'Admin.gs', 'Pdf.gs', 'Report.gs', 'Subs.gs', 'Dept.gs', 'Router.gs', 'Code.gs', 'Setup.gs'];
 
 function signedBytes(buf) {
   return Array.from(buf, (b) => (b > 127 ? b - 256 : b));

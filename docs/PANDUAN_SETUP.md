@@ -1,6 +1,6 @@
 # Panduan pemasangan
 
-Panduan ini bertambah tiap tahap. Saat ini: **Tahap 1 (login dan akun)** dan **Tahap 2 (form pengajuan)**, **Tahap 3 (alur approval)**, dan **Tahap 4 (konfirmasi terima dan PDF)**.
+Panduan ini bertambah tiap tahap. Saat ini: **Tahap 1 (login dan akun)** dan **Tahap 2 (form pengajuan)**, **Tahap 3 (alur approval)**, dan **Tahap 4 (konfirmasi terima dan PDF)**, dan **Tahap 5 (rekap)**.
 
 ## A. Siapkan Google (sekali saja)
 
@@ -48,7 +48,7 @@ Pilih satu cara.
 
 1. Buka URL, login dengan NIK admin dan password awal. Anda wajib membuat password baru.
 2. Menu **Admin: Pengguna → Impor akun dari Excel**. Pilih file akun (kolom: Name, Nickname, Email, NIK, Dept Code, Department, Level, Role, Status). Alternatif jika file gagal terbaca: salin semua sel di Excel lalu tempel di kotak teks.
-3. Akun uji (Test Dept, Test User, Administrator) otomatis dilewati.
+3. Akun uji (Test Dept, Test Planner, Test User, Administrator) otomatis dilewati.
 4. Centang **Logistic Staff** untuk 5 orang Logistic.
 5. Untuk akun yang lupa password: **Reset password** (kembali ke password awal, wajib ganti lagi).
 
@@ -149,3 +149,25 @@ Aturan:
 - [ ] PDF terunduh dari HP, tampil rapi di satu halaman A4, foto tampil (konverter PDF Google tidak bisa diuji di luar Google; jika foto tidak muncul, kabari agar diganti metode), nama dan waktu benar, 4 kolom tanda tangan lengkap.
 - [ ] Cetak PDF, tanda tangan basah di kertas.
 - [ ] Rekan yang tidak berhak tidak bisa mengunduh PDF pengajuan orang lain.
+
+## Tambahan Tahap 5 (rekap)
+
+Tidak ada sheet baru. Salin file baru dan yang berubah, lalu terbitkan versi baru:
+
+- File baru: `Report.gs`, `ClientReport.html`.
+- File berubah: `Router.gs`, `Index.html`, `Client.html`, `Styles.html`, `Config.gs`.
+- **Deploy → Manage deployments → pensil → Version: New version → Deploy**.
+
+Cara pakai: menu **Rekap** di beranda (untuk Dept. Head, Logistic Staff, Admin, Division Head, Management). Pilih tahun, bulan (atau setahun penuh), dan status.
+
+- Isi: jumlah pengajuan dan item, jumlah per status, per bulan (jika setahun penuh), per departemen, per sumber scrap, total qty per UoM, dan daftar item.
+- Tanggal acuan: saat pengajuan **dikirim** (WITA). Draft tidak dihitung. Ditolak dan Dibatalkan tetap terhitung kecuali difilter lewat status.
+- Cakupan otomatis mengikuti hak akses: Logistic, Admin, Division Head, Management melihat semua. Dept. Head hanya departemennya.
+- **Ekspor Excel**: file `.xlsx` dengan 3 sheet (Ringkasan, Pengajuan, Item). Jika pembaca Excel tidak termuat (internet terbatas), file diunduh sebagai CSV daftar item.
+
+### Uji manual Tahap 5
+
+- [ ] Rekap bulan ini sesuai jumlah pengajuan terkirim di sheet `Submissions`.
+- [ ] Pindah bulan/tahun/status: angka berubah wajar.
+- [ ] Ekspor Excel terunduh dari HP/laptop dan terbuka di Excel (3 sheet).
+- [ ] Dept. Head hanya melihat departemennya. Logistic melihat semua.

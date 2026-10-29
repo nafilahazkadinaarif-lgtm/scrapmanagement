@@ -1,0 +1,158 @@
+<script>
+(function () {
+  'use strict';
+  var A = window.App;
+  var h = A.h, mount = A.mount, call = A.call;
+  var XLSX_URL = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  var MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  var STATUSES = ['', 'Menunggu Dept Head', 'Menunggu Logistic', 'Disetujui', 'Selesai', 'Ditolak', 'Dibatalkan'];
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  // ISO -> "2026-10-29 14:05" (WITA)
+  function fmt(iso) {
+    var t = new Date(iso).getTime();
+    if (!iso || isNaN(t)) return '';
+    var d = new Date(t + 8 * 3600000);
+    return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()) + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes());
+  }
+
+  function table(headers, rows) {
+    var head = h('tr', {}, headers.map(function (x) { return h('th', { text: x }); }));
+    var body = rows.map(function (r) { return h('tr', {}, r.map(function (c) { return h('td', { text: String(c) }); })); });
+    return h('div', { class: 'tablewrap' }, [h('table', {}, [head].concat(body))]);
+  }
+
+  function stat(label, value) {
+    return h('div', { class: 'stat' }, [h('div', { class: 'num', text: String(value) }), h('div', { class: 'muted', text: label })]);
+  }
+
+  function loadXlsx() {
+    if (window.XLSX) return Promise.resolve();
+    return new Promise(function (ok, bad) {
+      var s = document.createElement('script');
+      s.src = XLSX_URL; s.onload = ok;
+      s.onerror = function () { bad(new Error('xlsx')); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function download(blob, name, slot) {
+    var url = URL.createObjectURL(blob);
+    var a = h('a', { href: url, download: name, target: '_blank', rel: 'noopener', text: 'Unduh ' + name });
+    a.style.display = 'inline-block'; a.style.marginTop = '8px';
+    slot.innerHTML = ''; slot.appendChild(a);
+    try { a.click(); } catch (e) { /* tautan manual tetap ada */ }
+  }
+
+  function csvOf(rows) {
+    return '﻿' + rows.map(function (r) {
+      return r.map(function (c) { return '"' + String(c === null || c === undefined ? '' : c).replace(/"/g, '""') + '"'; }).join(',');
+    }).join('\r\n');
+  }
+
+  function itemRows(d) {
+    var head = ['No. Pengajuan', 'Tanggal Kirim (WITA)', 'Status', 'Departemen', 'Pemohon', 'Sumber Scrap', 'Keterangan Sumber',
+      'Item', 'No. Material', 'Material Description', 'Qty', 'UoM', 'Scrap Reason'];
+    return [head].concat(d.rows.map(function (r) {
+      return [r.number, fmt(r.submittedAt), r.status, r.department, r.requester, r.source, r.sourceOther, r.line,
+        r.materialNo, r.description, r.qty, r.uom, r.reason];
+    }));
+  }
+
+  function exportExcel(d, slot, msg) {
+    msg.className = 'muted'; msg.textContent = 'Menyiapkan file...';
+    var name = 'Rekap-Scrap-' + d.period.label.replace(/\s+/g, '-') + '.xlsx';
+    loadXlsx().then(function () {
+      var X = window.XLSX, wb = X.utils.book_new();
+      var sum = [['Rekap Handover Scrap - PT DSSP Power Kendari'], ['Periode', d.period.label], [],
+        ['Total pengajuan', d.totals.count], ['Total item', d.totals.items], [], ['Status', 'Jumlah']];
+      Object.keys(d.totals.byStatus).forEach(function (k) { sum.push([k, d.totals.byStatus[k]]); });
+      sum.push([], ['Departemen', 'Pengajuan', 'Item']);
+      d.byDepartment.forEach(function (x) { sum.push([x.department, x.count, x.items]); });
+      sum.push([], ['Sumber Scrap', 'Pengajuan', 'Item']);
+      d.bySource.forEach(function (x) { sum.push([x.source, x.count, x.items]); });
+      if (d.byMonth.length) {
+        sum.push([], ['Bulan', 'Pengajuan', 'Item']);
+        d.byMonth.forEach(function (x) { sum.push([x.label, x.count, x.items]); });
+      }
+      sum.push([], ['UoM', 'Total Qty']);
+      d.byUom.forEach(function (x) { sum.push([x.uom, x.qty]); });
+      X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(sum), 'Ringkasan');
+      X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet([['No. Pengajuan', 'Tanggal Kirim (WITA)', 'Status', 'Pemohon', 'Departemen', 'Sumber Scrap', 'Keterangan Sumber', 'Jumlah Item']]
+        .concat(d.submissions.map(function (s) { return [s.number, fmt(s.submittedAt), s.status, s.requester, s.department, s.source, s.sourceOther, s.itemCount]; }))), 'Pengajuan');
+      X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(itemRows(d)), 'Item');
+      var out = X.write(wb, { type: 'array', bookType: 'xlsx' });
+      download(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), name, slot);
+      msg.className = 'okmsg'; msg.textContent = 'File siap. Ketuk tautan jika unduhan tidak mulai otomatis.';
+    }).catch(function () {
+      download(new Blob([csvOf(itemRows(d))], { type: 'text/csv;charset=utf-8' }), name.replace(/\.xlsx$/, '.csv'), slot);
+      msg.className = 'muted'; msg.textContent = 'Pembuat Excel tidak termuat, diunduh sebagai CSV (daftar item). Buka dengan Excel.';
+    });
+  }
+
+  function viewReport(params) {
+    params = params || {};
+    var now = new Date(Date.now() + 8 * 3600000);
+    var state = { year: params.year || now.getUTCFullYear(), month: params.month || 0, status: params.status || '' };
+    var year = h('select');
+    var month = h('select', {}, [h('option', { value: '0', text: 'Setahun penuh' })].concat(
+      MONTHS.map(function (m, i) { return h('option', { value: String(i + 1), text: m }); })));
+    var status = h('select', {}, STATUSES.map(function (s) { return h('option', { value: s, text: s || 'Semua status' }); }));
+    month.value = String(state.month); status.value = state.status;
+    var out = h('div', { class: 'card' }, [h('p', { class: 'muted', text: 'Memuat rekap...' })]);
+
+    function setYears(list) {
+      year.innerHTML = '';
+      list.forEach(function (y) { year.appendChild(h('option', { value: String(y), text: String(y) })); });
+      year.value = String(state.year);
+    }
+    setYears([state.year]);
+
+    function load() {
+      state.year = Number(year.value) || state.year; state.month = Number(month.value); state.status = status.value;
+      out.innerHTML = ''; out.appendChild(h('p', { class: 'muted', text: 'Memuat rekap...' }));
+      call('report', state).then(function (r) {
+        if (!r.ok) { if (r.code === 'SESSION') A.logout(r.error); else { out.innerHTML = ''; out.appendChild(h('p', { class: 'err', text: r.error })); } return; }
+        setYears(r.data.years);
+        render(r.data);
+      });
+    }
+
+    function render(d) {
+      var slot = h('div'), msg = h('div', { class: 'muted' });
+      var btn = h('button', { class: 'block', text: 'Ekspor Excel', onclick: function () { exportExcel(d, slot, msg); } });
+      out.innerHTML = '';
+      out.appendChild(h('h2', { text: d.period.label }));
+      out.appendChild(h('div', { class: 'stats' }, [stat('Pengajuan', d.totals.count), stat('Item', d.totals.items)]
+        .concat(Object.keys(d.totals.byStatus).map(function (k) { return stat(k, d.totals.byStatus[k]); }))));
+      if (!d.totals.count) { out.appendChild(h('p', { class: 'muted', text: 'Tidak ada pengajuan pada periode ini.' })); return; }
+      if (d.byMonth.length) {
+        out.appendChild(h('h2', { text: 'Per bulan' }));
+        out.appendChild(table(['Bulan', 'Pengajuan', 'Item'], d.byMonth.map(function (m) { return [m.label, m.count, m.items]; })));
+      }
+      out.appendChild(h('h2', { text: 'Per departemen' }));
+      out.appendChild(table(['Departemen', 'Pengajuan', 'Item'], d.byDepartment.map(function (x) { return [x.department, x.count, x.items]; })));
+      out.appendChild(h('h2', { text: 'Per sumber scrap' }));
+      out.appendChild(table(['Sumber', 'Pengajuan', 'Item'], d.bySource.map(function (x) { return [x.source, x.count, x.items]; })));
+      out.appendChild(h('h2', { text: 'Total qty per UoM' }));
+      out.appendChild(table(['UoM', 'Total Qty'], d.byUom.map(function (x) { return [x.uom, String(x.qty).replace('.', ',')]; })));
+      out.appendChild(h('h2', { text: 'Daftar item (' + d.rows.length + ')' }));
+      out.appendChild(table(['No. Pengajuan', 'Departemen', 'Item', 'Qty', 'UoM', 'Status'],
+        d.rows.slice(0, 200).map(function (r) { return [r.number, r.department, r.description, String(r.qty).replace('.', ','), r.uom, r.status]; })));
+      if (d.rows.length > 200) out.appendChild(h('p', { class: 'muted', text: 'Menampilkan 200 pertama. Ekspor Excel memuat semuanya.' }));
+      out.appendChild(btn); out.appendChild(msg); out.appendChild(slot);
+    }
+
+    [year, month, status].forEach(function (el) { el.addEventListener('change', load); });
+    mount(
+      h('div', { class: 'bar' }, [h('h1', { text: 'Rekap' }), h('button', { class: 'secondary small', text: 'Kembali', onclick: A.viewHome })]),
+      h('div', { class: 'card' }, [h('label', { text: 'Tahun' }), year, h('label', { text: 'Bulan' }), month, h('label', { text: 'Status' }), status,
+        h('p', { class: 'muted', text: 'Tanggal acuan: saat pengajuan dikirim (WITA). Draft tidak dihitung. Cakupan sesuai hak akses Anda.' })]),
+      out
+    );
+    load();
+  }
+
+  A.report = { viewReport: viewReport };
+})();
+</script>

@@ -184,6 +184,7 @@
     if (r.isAdmin) nav.unshift(h('button', { text: 'Admin: Pengguna', onclick: viewAdmin }));
     if (r.isDeptHead) nav.unshift(h('button', { text: 'Pengaturan Deputy', onclick: function () { App.subs.viewDeputy(); } }));
     if (r.isDeptHead || r.isLogistic || r.isAdmin || r.isDivisionHead || r.isManagement) {
+      nav.unshift(h('button', { text: 'Rekap', onclick: function () { App.report.viewReport(); } }));
       nav.unshift(h('button', { text: 'Semua Pengajuan', onclick: function () { App.subs.viewAll(); } }));
     }
     var inboxBox = h('div', { class: 'card', style: 'display:none' });

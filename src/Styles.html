@@ -69,4 +69,11 @@
     .st.good { background: #17402a; color: #a8e6bf; }
   }
   .hist { font-size: .9rem; margin: 6px 0; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin: 8px 0; }
+  .stat { border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+  .stat .num { font-size: 1.5rem; font-weight: 700; }
+  .tablewrap { overflow-x: auto; margin: 6px 0 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; white-space: nowrap; }
 </style>

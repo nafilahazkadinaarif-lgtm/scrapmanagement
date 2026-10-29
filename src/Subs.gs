@@ -102,10 +102,99 @@ var Subs = {
     return { ok: true, data: out };
   },
 
+  waitingFor_: function (sub, depts) {
+    if (sub.Status === CFG.STATUS.WAIT_LOG) return 'Logistic Staff';
+    if (sub.Status !== CFG.STATUS.WAIT_HEAD) return '';
+    var d = Workflow.deptOf_(sub, depts);
+    if (!d) return 'Dept. Head';
+    var users = Repo.allUsers();
+    var name = function (nik) { var u = Auth.find(users, nik); return u ? u.Name : nik; };
+    return 'Dept. Head ' + name(d.HeadNIK) + (d.DeputyNIK ? ' / Deputy ' + name(d.DeputyNIK) : '');
+  },
+
   get: function (user, p) {
     var f = Subs.find_(p.id);
-    if (!f || !Workflow.canView(user, f.sub, Repo.allDepartments())) return Subs.fail('Pengajuan tidak ditemukan.');
-    return { ok: true, data: Subs.view_(f.sub, true) };
+    var depts = Repo.allDepartments();
+    if (!f || !Workflow.canView(user, f.sub, depts)) return Subs.fail('Pengajuan tidak ditemukan.');
+    var v = Subs.view_(f.sub, true);
+    v.actions = Workflow.availableActions(user, f.sub, depts);
+    v.waitingFor = Subs.waitingFor_(f.sub, depts);
+    v.lastNote = '';
+    v.history.forEach(function (e) {
+      if (e.action.indexOf('Ditolak') === 0 || e.action === 'Dibatalkan') v.lastNote = e.byName + ': ' + (e.note || '-');
+    });
+    return { ok: true, data: v };
+  },
+
+  summary_: function (s, itemsByRow) {
+    var mine = itemsByRow.filter(function (r) { return r.SubmissionID === s.ID; })
+      .sort(function (a, b) { return a.Line - b.Line; });
+    return {
+      id: s.ID, number: s.Number, status: s.Status, updatedAt: s.UpdatedAt,
+      requesterName: s.RequesterName, department: s.Department, source: s.Source,
+      itemCount: mine.length, firstItem: mine.length ? mine[0].Description : ''
+    };
+  },
+
+  // Antrean: pengajuan yang menunggu tindakan user ini
+  inbox: function (user) {
+    var depts = Repo.allDepartments(), items = Repo.readTable('Items');
+    var out = Repo.readTable('Submissions').filter(function (s) {
+      return Workflow.availableActions(user, s, depts).indexOf('approve') >= 0;
+    }).map(function (s) { return Subs.summary_(s, items); });
+    out.sort(function (a, b) { return a.updatedAt < b.updatedAt ? -1 : 1; });
+    return { ok: true, data: out };
+  },
+
+  // Semua pengajuan yang boleh dilihat user (tanpa draft orang lain)
+  listVisible: function (user) {
+    var depts = Repo.allDepartments(), items = Repo.readTable('Items');
+    var out = Repo.readTable('Submissions').filter(function (s) {
+      return Workflow.canView(user, s, depts);
+    }).map(function (s) { return Subs.summary_(s, items); });
+    out.sort(function (a, b) { return a.updatedAt < b.updatedAt ? 1 : -1; });
+    return { ok: true, data: out.slice(0, 500) };
+  },
+
+  act: function (user, p) {
+    var action = String(p.action || '');
+    var note = String(p.note || '').trim().substring(0, 500);
+    if (['approve', 'reject', 'cancel', 'reopen'].indexOf(action) < 0) return Subs.fail('Aksi tidak dikenal.');
+    if (action === 'reject' && !note) return Subs.fail('Alasan penolakan wajib diisi.');
+    return Repo.withLock(function () {
+      var f = Subs.find_(p.id);
+      var depts = Repo.allDepartments();
+      if (!f || !Workflow.canView(user, f.sub, depts)) return Subs.fail('Pengajuan tidak ditemukan.');
+      var sub = f.sub, S = CFG.STATUS;
+      if (Workflow.availableActions(user, sub, depts).indexOf(action) < 0) {
+        return Subs.fail('Aksi tidak diizinkan untuk status pengajuan ini.', 'FORBIDDEN');
+      }
+      var label;
+      if (action === 'approve') {
+        if (sub.Status === S.WAIT_HEAD) {
+          var d = Workflow.deptOf_(sub, depts);
+          label = 'Disetujui Dept Head' + (d && d.HeadNIK !== user.NIK ? ' (Deputy)' : '');
+          sub.Status = S.WAIT_LOG;
+        } else {
+          label = 'Disetujui Logistic';
+          sub.Status = S.APPROVED;
+        }
+      } else if (action === 'reject') {
+        label = sub.Status === S.WAIT_HEAD ? 'Ditolak Dept Head' : 'Ditolak Logistic';
+        sub.Status = S.REJECTED;
+      } else if (action === 'cancel') {
+        label = 'Dibatalkan';
+        sub.Status = S.CANCELLED;
+      } else {
+        label = 'Dibuka kembali';
+        sub.Status = S.DRAFT;
+        sub.SubmittedAt = '';
+      }
+      sub.UpdatedAt = Subs.iso_();
+      Subs.saveSub_(f.all, sub);
+      Subs.log_(user, sub.ID, label, note);
+      return { ok: true, data: { id: sub.ID, status: sub.Status } };
+    });
   },
 
   save: function (user, p) {

@@ -52,6 +52,26 @@ var Router = {
       auth: 'user',
       fn: function (ctx, p) { return Subs.submit(ctx.user, p); }
     },
+    inbox: {
+      auth: 'user',
+      fn: function (ctx) { return Subs.inbox(ctx.user); }
+    },
+    'sub.listVisible': {
+      auth: 'user',
+      fn: function (ctx) { return Subs.listVisible(ctx.user); }
+    },
+    'sub.act': {
+      auth: 'user',
+      fn: function (ctx, p) { return Subs.act(ctx.user, p); }
+    },
+    'dept.mine': {
+      auth: 'user',
+      fn: function (ctx) { return Dept.mine(ctx.user); }
+    },
+    'dept.setDeputy': {
+      auth: 'user',
+      fn: function (ctx, p) { return Dept.setDeputy(ctx.user, p); }
+    },
     'sub.deleteDraft': {
       auth: 'user',
       fn: function (ctx, p) { return Subs.deleteDraft(ctx.user, p); }

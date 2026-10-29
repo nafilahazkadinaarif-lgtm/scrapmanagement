@@ -7,7 +7,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const SRC = path.join(__dirname, '..', 'src');
-const FILES = ['Config.gs', 'Sec.gs', 'Repo.gs', 'Roles.gs', 'Validate.gs', 'Workflow.gs', 'Auth.gs', 'Admin.gs', 'Subs.gs', 'Router.gs', 'Code.gs', 'Setup.gs'];
+const FILES = ['Config.gs', 'Sec.gs', 'Repo.gs', 'Roles.gs', 'Validate.gs', 'Workflow.gs', 'Auth.gs', 'Admin.gs', 'Subs.gs', 'Dept.gs', 'Router.gs', 'Code.gs', 'Setup.gs'];
 
 function signedBytes(buf) {
   return Array.from(buf, (b) => (b > 127 ? b - 256 : b));
@@ -53,6 +53,7 @@ function createApp(seedUsers) {
     Repo.replaceAllUsers = function (list) { __db.users = __clone(list); };
     Repo.allDepartments = function () { return __clone(__db.departments); };
     Repo.addDepartments = function (list) { __db.departments = __db.departments.concat(__clone(list)); };
+    Repo.replaceDepartments = function (list) { __db.departments = __clone(list); };
     Repo.readTable = function (n) { return __clone(__db.tables[n] || []); };
     Repo.writeTable = function (n, rows) { __db.tables[n] = __clone(rows); };
     Repo.appendRow = function (n, row) { (__db.tables[n] = __db.tables[n] || []).push(__clone(row)); };

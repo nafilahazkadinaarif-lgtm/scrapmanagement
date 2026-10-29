@@ -29,5 +29,38 @@ var Workflow = {
       if (d.Department === sub.Department && (d.HeadNIK === user.NIK || d.DeputyNIK === user.NIK)) return true;
     }
     return false;
+  },
+
+  deptOf_: function (sub, departments) {
+    for (var i = 0; i < departments.length; i++) {
+      if (departments[i].Department === sub.Department) return departments[i];
+    }
+    return null;
+  },
+
+  isHeadOrDeputy: function (user, dept) {
+    return !!dept && (dept.HeadNIK === user.NIK || dept.DeputyNIK === user.NIK);
+  },
+
+  /**
+   * Aksi yang boleh dilakukan user pada pengajuan:
+   * edit, delete, cancel, reopen (pemohon); approve, reject (penyetuju).
+   * Tidak ada yang boleh menyetujui/menolak pengajuan miliknya sendiri.
+   */
+  availableActions: function (user, sub, departments) {
+    var S = CFG.STATUS, a = [];
+    if (sub.Status === S.DELETED) return a;
+    if (sub.RequesterNIK === user.NIK) {
+      if (sub.Status === S.DRAFT) a.push('edit', 'delete');
+      else if (sub.Status === S.WAIT_HEAD || sub.Status === S.WAIT_LOG || sub.Status === S.APPROVED) a.push('cancel');
+      else if (sub.Status === S.REJECTED || sub.Status === S.CANCELLED) a.push('reopen');
+      return a;
+    }
+    if (sub.Status === S.WAIT_HEAD && Workflow.isHeadOrDeputy(user, Workflow.deptOf_(sub, departments))) {
+      a.push('approve', 'reject');
+    } else if (sub.Status === S.WAIT_LOG && Roles.derive(user).isLogistic) {
+      a.push('approve', 'reject');
+    }
+    return a;
   }
 };

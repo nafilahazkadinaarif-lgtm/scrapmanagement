@@ -77,6 +77,85 @@
     });
   }
 
+  function listRow(s, withWho) {
+    return h('button', { class: 'listitem', onclick: function () { viewDetail(s.id); } }, [
+      h('span', {}, [s.number || 'Draft', ' ', statusChip(s.status)]),
+      h('small', { text: (withWho ? s.requesterName + ' · ' + s.department + ' · ' : '') + s.itemCount + ' item' +
+        (s.firstItem ? ' · ' + s.firstItem : '') + ' · ' + fmtDate(s.updatedAt) })
+    ]);
+  }
+
+  function inboxList(box) {
+    call('inbox').then(function (r) {
+      if (!r.ok || !r.data.length) { box.style.display = 'none'; return; }
+      box.style.display = '';
+      box.innerHTML = '';
+      box.appendChild(h('h2', { text: 'Menunggu tindakan Anda (' + r.data.length + ')' }));
+      r.data.forEach(function (s) { box.appendChild(listRow(s, true)); });
+    });
+  }
+
+  function viewAll() {
+    var list = h('div', { class: 'card' }, [h('p', { class: 'muted', text: 'Memuat...' })]);
+    var q = h('input', { type: 'search', placeholder: 'Cari nomor / nama / departemen / item' });
+    var statuses = ['', 'Menunggu Dept Head', 'Menunggu Logistic', 'Disetujui', 'Selesai', 'Ditolak', 'Dibatalkan'];
+    var st = h('select', {}, statuses.map(function (x) { return h('option', { value: x, text: x || 'Semua status' }); }));
+    var data = [];
+    function render() {
+      var f = q.value.trim().toLowerCase(), sv = st.value;
+      var rows = data.filter(function (s) {
+        return (!sv || s.status === sv) &&
+          (!f || (s.number + ' ' + s.requesterName + ' ' + s.department + ' ' + s.firstItem).toLowerCase().indexOf(f) >= 0);
+      });
+      list.innerHTML = '';
+      list.appendChild(h('p', { class: 'muted', text: rows.length + ' pengajuan' }));
+      rows.slice(0, 100).forEach(function (s) { list.appendChild(listRow(s, true)); });
+      if (rows.length > 100) list.appendChild(h('p', { class: 'muted', text: 'Menampilkan 100 pertama. Persempit pencarian.' }));
+    }
+    q.addEventListener('input', render); st.addEventListener('change', render);
+    mount(
+      h('div', { class: 'bar' }, [h('h1', { text: 'Semua Pengajuan' }), h('button', { class: 'secondary small', text: 'Kembali', onclick: A.viewHome })]),
+      h('div', { class: 'card' }, [q, h('div', { style: 'height:8px' }), st]),
+      list
+    );
+    call('sub.listVisible').then(function (r) {
+      if (!r.ok) { if (!sessionGuard(r)) list.textContent = r.error; return; }
+      data = r.data; render();
+    });
+  }
+
+  // ---------- Deputy ----------
+  function viewDeputy() {
+    var box = h('div');
+    mount(
+      h('div', { class: 'bar' }, [h('h1', { text: 'Pengaturan Deputy' }), h('button', { class: 'secondary small', text: 'Kembali', onclick: A.viewHome })]),
+      h('p', { class: 'muted', text: 'Deputy dapat menyetujui pengajuan departemen Anda. Berlaku sampai Anda mencabutnya.' }),
+      box
+    );
+    call('dept.mine').then(function (r) {
+      if (!r.ok) { if (!sessionGuard(r)) box.textContent = r.error; return; }
+      if (!r.data.length) box.appendChild(h('div', { class: 'card' }, [h('p', { class: 'muted', text: 'Anda belum tercatat sebagai Dept. Head departemen mana pun. Hubungi admin.' })]));
+      r.data.forEach(function (d) { box.appendChild(deputyCard(d)); });
+    });
+  }
+
+  function deputyCard(d) {
+    var msg = h('div', { class: 'muted' });
+    var sel = h('select', {}, [h('option', { value: '', text: '— tanpa Deputy —' })].concat(
+      d.candidates.map(function (c) { return h('option', { value: c.nik, text: c.name + ' (' + c.nik + ')' }); })));
+    sel.value = d.deputyNik || '';
+    var cur = h('p', { text: d.deputyName ? 'Deputy saat ini: ' + d.deputyName : 'Belum ada Deputy.' });
+    var btn = h('button', { class: 'block', text: 'Simpan', onclick: function () {
+      btn.disabled = true;
+      call('dept.setDeputy', { department: d.department, nik: sel.value }).then(function (r) {
+        btn.disabled = false;
+        if (r.ok) { cur.textContent = r.data.deputyName ? 'Deputy saat ini: ' + r.data.deputyName : 'Belum ada Deputy.'; msg.className = 'okmsg'; msg.textContent = 'Tersimpan.'; }
+        else if (!sessionGuard(r)) { msg.className = 'err'; msg.textContent = r.error; }
+      });
+    } });
+    return h('div', { class: 'card' }, [h('h2', { text: d.department }), cur, h('label', { text: 'Pilih Deputy' }), sel, btn, msg]);
+  }
+
   // ---------- form ----------
   function blankItem() { return { materialNo: '', description: '', qty: '', uom: '', uomOther: '', reason: '' }; }
 
@@ -282,17 +361,7 @@
         return;
       }
       var v = r.data;
-      var mine = v.requesterNik === A.state.user.nik;
-      var actions = [h('button', { class: 'secondary', text: 'Kembali', onclick: A.viewHome })];
-      if (mine && v.status === 'Draft') {
-        actions.unshift(h('button', { text: 'Ubah / Kirim', onclick: function () { viewForm(v.id); } }));
-        actions.push(h('button', { class: 'secondary', text: 'Hapus draft', onclick: function () {
-          if (!window.confirm('Hapus draft ini?')) return;
-          call('sub.deleteDraft', { id: v.id }).then(function (d) {
-            if (d.ok) A.viewHome(); else if (!sessionGuard(d)) window.alert(d.error);
-          });
-        } }));
-      }
+      var can = function (a) { return v.actions.indexOf(a) >= 0; };
 
       var thumbs = h('div', { class: 'thumbs' });
       v.photos.forEach(function (p, i) {
@@ -301,14 +370,20 @@
         loadPhotoInto(img, v.id, p.fileId);
       });
 
+      var info = [
+        h('p', { class: 'muted', text: v.requesterName + ' · ' + v.department }),
+        h('p', {}, ['Sumber: ', h('b', { text: v.source + (v.sourceOther ? ' (' + v.sourceOther + ')' : '') })]),
+        h('p', { class: 'muted', text: v.submittedAt ? 'Diajukan ' + fmtDate(v.submittedAt) : 'Dibuat ' + fmtDate(v.createdAt) })
+      ];
+      if (v.waitingFor) info.push(h('p', {}, ['Menunggu: ', h('b', { text: v.waitingFor })]));
+
       mount(
         h('div', { class: 'bar' }, [h('h1', { text: v.number || 'Draft' }), statusChip(v.status)]),
         notice ? h('div', { class: 'okmsg', text: notice }) : null,
-        h('div', { class: 'card' }, [
-          h('p', { class: 'muted', text: v.requesterName + ' · ' + v.department }),
-          h('p', {}, ['Sumber: ', h('b', { text: v.source + (v.sourceOther ? ' (' + v.sourceOther + ')' : '') })]),
-          h('p', { class: 'muted', text: v.submittedAt ? 'Diajukan ' + fmtDate(v.submittedAt) : 'Dibuat ' + fmtDate(v.createdAt) })
-        ]),
+        (v.lastNote && (v.status === 'Ditolak' || v.status === 'Dibatalkan'))
+          ? h('div', { class: 'card' }, [h('b', { class: 'err', text: v.status === 'Ditolak' ? 'Alasan penolakan' : 'Catatan pembatalan' }), h('p', { text: v.lastNote })])
+          : null,
+        h('div', { class: 'card' }, info),
         h('div', { class: 'card' }, [h('h2', { text: 'Item (' + v.items.length + ')' })].concat(v.items.map(function (i) {
           return h('div', { class: 'item' }, [
             h('b', { text: i.line + '. ' + i.description }),
@@ -317,14 +392,73 @@
           ]);
         }))),
         h('div', { class: 'card' }, [h('h2', { text: 'Foto (' + v.photos.length + ')' }), thumbs]),
+        actionCard(v, can),
         h('div', { class: 'card' }, [h('h2', { text: 'Riwayat' })].concat((v.history || []).map(function (e) {
           return h('div', { class: 'hist' }, [h('b', { text: e.action }), ' · ' + e.byName + ' · ' + fmtDate(e.at) + (e.note ? ' · ' + e.note : '')]);
         }))),
-        h('div', { class: 'row' }, actions)
+        h('button', { class: 'secondary block', text: 'Kembali', onclick: A.viewHome })
       );
     });
   }
 
-  A.subs = { mineList: mineList, viewForm: viewForm, viewDetail: viewDetail };
+  // Tombol aksi sesuai hak. Tolak wajib alasan, batal boleh beralasan.
+  function actionCard(v, can) {
+    var card = h('div', { class: 'card' });
+    var msg = h('div', { class: 'err' });
+    var reason = h('textarea', { placeholder: 'Alasan', maxlength: '500' });
+    var reasonBox = h('div', { style: 'display:none' }, [h('label', { text: 'Alasan' }), reason]);
+    var pending = null;
+    var confirmBtn = h('button', { class: 'block', style: 'display:none', text: 'Konfirmasi' });
+    var row = h('div', { class: 'row' });
+
+    function run(action, note) {
+      msg.textContent = '';
+      confirmBtn.disabled = true;
+      call('sub.act', { id: v.id, action: action, note: note || '' }).then(function (r) {
+        confirmBtn.disabled = false;
+        if (r.ok) { viewDetail(v.id, { approve: 'Disetujui.', reject: 'Pengajuan ditolak.', cancel: 'Pengajuan dibatalkan.', reopen: 'Dibuka kembali sebagai Draft.' }[action]); return; }
+        if (!sessionGuard(r)) msg.textContent = r.error;
+      });
+    }
+    function askReason(action, label, required) {
+      pending = { action: action, required: required };
+      reasonBox.style.display = '';
+      reason.placeholder = required ? 'Alasan (wajib)' : 'Alasan (opsional)';
+      confirmBtn.style.display = '';
+      confirmBtn.textContent = label;
+      reason.focus();
+    }
+    confirmBtn.addEventListener('click', function () {
+      if (!pending) return;
+      if (pending.required && !reason.value.trim()) { msg.textContent = 'Alasan wajib diisi.'; return; }
+      run(pending.action, reason.value);
+    });
+
+    if (can('edit')) row.appendChild(h('button', { text: 'Ubah / Kirim', onclick: function () { viewForm(v.id); } }));
+    if (can('delete')) row.appendChild(h('button', { class: 'secondary', text: 'Hapus draft', onclick: function () {
+      if (!window.confirm('Hapus draft ini?')) return;
+      call('sub.deleteDraft', { id: v.id }).then(function (d) {
+        if (d.ok) A.viewHome(); else if (!sessionGuard(d)) msg.textContent = d.error;
+      });
+    } }));
+    if (can('approve')) row.appendChild(h('button', { text: 'Setujui', onclick: function () {
+      if (window.confirm('Setujui pengajuan ' + v.number + '?')) run('approve', '');
+    } }));
+    if (can('reject')) row.appendChild(h('button', { class: 'secondary', text: 'Tolak', onclick: function () { askReason('reject', 'Konfirmasi tolak', true); } }));
+    if (can('cancel')) row.appendChild(h('button', { class: 'secondary', text: 'Batalkan pengajuan', onclick: function () { askReason('cancel', 'Konfirmasi batal', false); } }));
+    if (can('reopen')) row.appendChild(h('button', { text: 'Buka kembali (perbaiki)', onclick: function () {
+      if (window.confirm('Buka kembali sebagai Draft? Setelah diperbaiki dan dikirim ulang, approval mulai dari awal.')) run('reopen', '');
+    } }));
+
+    if (!row.childNodes.length) return h('div');
+    card.appendChild(h('h2', { text: 'Tindakan' }));
+    card.appendChild(row);
+    card.appendChild(reasonBox);
+    card.appendChild(confirmBtn);
+    card.appendChild(msg);
+    return card;
+  }
+
+  A.subs = { mineList: mineList, inboxList: inboxList, viewAll: viewAll, viewDeputy: viewDeputy, viewForm: viewForm, viewDetail: viewDetail };
 })();
 </script>

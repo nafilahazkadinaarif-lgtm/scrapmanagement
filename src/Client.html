@@ -32,7 +32,7 @@
 
   function mount() {
     app.innerHTML = '';
-    for (var i = 0; i < arguments.length; i++) app.appendChild(arguments[i]);
+    for (var i = 0; i < arguments.length; i++) if (arguments[i]) app.appendChild(arguments[i]);
   }
 
   function call(action, payload) {
@@ -180,7 +180,13 @@
     var nav = [
       h('button', { class: 'secondary', text: 'Ganti password', onclick: function () { viewChangePassword(false); } })
     ];
-    if (u.roles.isAdmin) nav.unshift(h('button', { text: 'Admin: Pengguna', onclick: viewAdmin }));
+    var r = u.roles;
+    if (r.isAdmin) nav.unshift(h('button', { text: 'Admin: Pengguna', onclick: viewAdmin }));
+    if (r.isDeptHead) nav.unshift(h('button', { text: 'Pengaturan Deputy', onclick: function () { App.subs.viewDeputy(); } }));
+    if (r.isDeptHead || r.isLogistic || r.isAdmin || r.isDivisionHead || r.isManagement) {
+      nav.unshift(h('button', { text: 'Semua Pengajuan', onclick: function () { App.subs.viewAll(); } }));
+    }
+    var inboxBox = h('div', { class: 'card', style: 'display:none' });
 
     var mine = h('div', { class: 'card' }, [h('p', { class: 'muted', text: 'Memuat pengajuan...' })]);
 
@@ -191,10 +197,12 @@
         h('p', { class: 'muted', text: 'NIK ' + u.nik + ' · ' + u.department }),
         roleChips(u)
       ]),
+      inboxBox,
       h('button', { class: 'block', text: '+ Buat Pengajuan Scrap', onclick: function () { App.subs.viewForm(null); } }),
       mine,
       h('div', { class: 'row' }, nav)
     );
+    App.subs.inboxList(inboxBox);
     App.subs.mineList(mine);
   }
 

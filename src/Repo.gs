@@ -111,6 +111,15 @@ var Repo = {
     sh.getRange(sh.getLastRow() + 1, 1, rows.length, CFG.DEPT_COLS.length).setValues(rows);
   },
 
+  replaceDepartments: function (list) {
+    var sh = Repo.sheet(CFG.SHEETS.DEPARTMENTS);
+    var last = sh.getLastRow();
+    if (last > 1) sh.getRange(2, 1, last - 1, CFG.DEPT_COLS.length).clearContent();
+    if (!list.length) return;
+    var rows = list.map(function (d) { return CFG.DEPT_COLS.map(function (c) { return d[c] || ''; }); });
+    sh.getRange(2, 1, rows.length, CFG.DEPT_COLS.length).setValues(rows);
+  },
+
   // ---- Tabel generik (Submissions, Items, Photos, History, UoM) ----
   readTable: function (name) {
     var spec = CFG.TABLES[name];

@@ -1,6 +1,6 @@
 # Panduan pemasangan
 
-Panduan ini bertambah tiap tahap. Saat ini: **Tahap 1 (login dan akun)** dan **Tahap 2 (form pengajuan)**.
+Panduan ini bertambah tiap tahap. Saat ini: **Tahap 1 (login dan akun)** dan **Tahap 2 (form pengajuan)**, dan **Tahap 3 (alur approval)**.
 
 ## A. Siapkan Google (sekali saja)
 
@@ -96,3 +96,33 @@ Cara kerja:
 - [ ] Qty `1,25` ditolak. Kirim tanpa foto ditolak.
 - [ ] Akun lain tidak bisa membuka pengajuan orang lain (kecuali Dept. Head departemen itu, Logistic, admin, Division Head, Management setelah dikirim).
 - [ ] Upload foto dari HP via sinyal biasa berhasil (jika sering gagal, kecilkan ukuran di `ClientSubs.html` bagian `compress`).
+
+## Tambahan Tahap 3 (alur approval)
+
+Tidak ada sheet baru. Salin file baru dan yang berubah, lalu terbitkan versi baru:
+
+- File baru: `Dept.gs`.
+- File berubah: `Workflow.gs`, `Subs.gs`, `Router.gs`, `Repo.gs`, `Client.html`, `ClientSubs.html`.
+- **Deploy → Manage deployments → pensil → Version: New version → Deploy**.
+
+Aturan:
+
+- Pemohon biasa: **Dept. Head (atau Deputy) → Logistic Staff → Disetujui**.
+- Dept. Head, Division Head, Management, departemen tanpa Dept. Head, atau pemohon yang sendiri adalah Dept. Head: langsung ke Logistic.
+- Tidak ada yang boleh menyetujui atau menolak pengajuannya sendiri (Logistic Staff yang mengajukan akan diproses Logistic Staff lain).
+- Tolak: alasan wajib. Pemohon melihat alasannya dan bisa **Buka kembali** (menjadi Draft, nomor tetap). Setelah dikirim ulang, approval mulai dari awal.
+- Batalkan: oleh pemohon selama belum Selesai (belum dikonfirmasi diterima). Pengajuan yang dibatalkan juga bisa dibuka kembali.
+- Beranda menampilkan **Menunggu tindakan Anda (N)** untuk penyetuju. Notifikasi lain tidak ada.
+- **Semua Pengajuan** (Dept. Head, Logistic, Admin, Division Head, Management): cari dan filter status. Dept. Head hanya melihat departemennya. Draft orang lain tidak terlihat.
+- **Pengaturan Deputy** (Dept. Head): pilih satu Deputy dari departemen yang sama, berlaku sampai dicabut ("— tanpa Deputy —" lalu Simpan). Persetujuan Deputy tercatat "(Deputy)" di riwayat. Admin juga bisa mengatur lewat sheet `Departments` kolom `DeputyNIK`.
+- Dept. Head per departemen ada di sheet `Departments` kolom `HeadNIK`. Ubah di sana bila ada pergantian (Dept. Head sementara Civil Maintenance juga di sini).
+
+### Uji manual Tahap 3
+
+- [ ] Pemohon biasa kirim: status Menunggu Dept Head dan terlihat siapa yang ditunggu.
+- [ ] Dept. Head melihat di antreannya, **Tolak** tanpa alasan ditolak, dengan alasan berhasil.
+- [ ] Pemohon melihat alasan, **Buka kembali**, ubah, kirim ulang: nomor sama, mulai dari awal.
+- [ ] Dept. Head menyetujui, Logistic menyetujui: status **Disetujui**.
+- [ ] Atur Deputy, Deputy menyetujui (tercatat "(Deputy)"). Cabut Deputy: tidak bisa lagi.
+- [ ] Logistic Staff mengajukan sendiri: tidak muncul di antreannya, tombol Setujui tidak ada. Logistic lain bisa.
+- [ ] Rekan sedepartemen tidak bisa membuka pengajuan orang lain.

@@ -1,6 +1,6 @@
 # Panduan pemasangan
 
-Panduan ini bertambah tiap tahap. Saat ini: **Tahap 1 (login dan akun)** dan **Tahap 2 (form pengajuan)**, **Tahap 3 (alur approval)**, dan **Tahap 4 (konfirmasi terima dan PDF)**, dan **Tahap 5 (rekap)**.
+Panduan ini bertambah tiap tahap. Saat ini: **Tahap 1 (login dan akun)** dan **Tahap 2 (form pengajuan)**, **Tahap 3 (alur approval)**, dan **Tahap 4 (konfirmasi terima dan PDF)**, **Tahap 5 (rekap)**, dan **Tahap 6 (material SAP, cadangan, penutup)**.
 
 ## A. Siapkan Google (sekali saja)
 
@@ -171,3 +171,55 @@ Cara pakai: menu **Rekap** di beranda (untuk Dept. Head, Logistic Staff, Admin, 
 - [ ] Pindah bulan/tahun/status: angka berubah wajar.
 - [ ] Ekspor Excel terunduh dari HP/laptop dan terbuka di Excel (3 sheet).
 - [ ] Dept. Head hanya melihat departemennya. Logistic melihat semua.
+
+## Tambahan Tahap 6 (material SAP dan cadangan)
+
+Salin file baru dan yang berubah, lalu terbitkan versi baru:
+
+- File baru: `Backup.gs`.
+- File berubah: `Config.gs`, `Repo.gs`, `Admin.gs`, `Subs.gs`, `Router.gs`, `Setup.gs`, `Client.html`, `ClientSubs.html`, `appsscript.json` (tambahan izin untuk jadwal otomatis).
+- Jalankan lagi **setupSheets** (membuat sheet `Materials`). Setujui izin baru jika Google meminta.
+- Jalankan **installWeeklyBackup** sekali dari editor (cadangan otomatis tiap Senin dini hari). Setujui izin jadwal.
+- **Deploy → Manage deployments → pensil → Version: New version → Deploy**.
+
+Cara kerja:
+
+- **Impor daftar material** (Admin → Impor daftar material SAP): pilih file MM60. Hanya kolom Material, Material Description, UoM yang dipakai (harga dan lainnya diabaikan). Setiap impor **mengganti seluruh daftar**, jadi untuk memperbarui cukup impor file MM60 terbaru. Kode UoM SAP yang belum ada otomatis ditambahkan ke pilihan UoM.
+- **Saran material** di form pengajuan: ketik minimal 3 huruf atau angka pada kolom "Cari material SAP". Pilih hasilnya untuk mengisi No. Material, Material Description, dan UoM (masih bisa diubah). Kolom ini opsional: scrap tanpa nomor material tetap diisi manual.
+- **Cadangan**: Admin → Cadangan data → **Cadangkan sekarang**, atau otomatis mingguan. Salinan seluruh Sheet disimpan di folder Drive `Scrap Portal Backups`, 8 terbaru dipertahankan. Foto tidak disalin ulang (sudah ada di folder foto Drive).
+- Memulihkan: buka salinan cadangan di Drive, lalu pakai sebagai Sheet baru (salin isi tab ke Sheet utama, atau ganti `DB_ID` di Project Settings → Script Properties dengan ID salinan).
+
+### Uji manual Tahap 6
+
+- [ ] Impor MM60: jumlah material sesuai jumlah baris file. Daftar UoM bertambah.
+- [ ] Di form pengajuan, ketik "bearing 6205" pada pencarian: muncul saran, memilih mengisi 3 kolom.
+- [ ] Item tanpa nomor material tetap bisa dikirim.
+- [ ] **Cadangkan sekarang** membuat file `Backup-tanggal_jam` di Drive.
+- [ ] Trigger mingguan terlihat di Apps Script (ikon jam).
+
+## Daftar uji akhir (uji menyeluruh setelah semuanya terpasang)
+
+1. Admin impor akun, tandai 5 Logistic Staff, impor material.
+2. Pemohon biasa membuat pengajuan 2 item dengan foto dari HP, kirim.
+3. Dept. Head menolak dengan alasan, pemohon membuka kembali, memperbaiki, mengirim ulang.
+4. Dept. Head (atau Deputy) menyetujui, Logistic Staff menyetujui, Logistic Staff lain mengonfirmasi terima.
+5. Cetak PDF, cek 4 kolom tanda tangan.
+6. Buka Rekap bulan berjalan dan ekspor Excel.
+7. Cek akun lain tidak bisa membuka pengajuan yang bukan haknya.
+
+## Perawatan dan pemecahan masalah
+
+| Masalah | Penanganan |
+|---|---|
+| Lupa password | Admin → Pengguna → **Reset password** (kembali ke password awal, wajib ganti). |
+| Akun terkunci | Tunggu 15 menit, atau Admin reset password. |
+| Orang pindah departemen / Dept. Head berganti | Ubah kolom `Department` di sheet `Users` dan `HeadNIK` di sheet `Departments`. |
+| Karyawan resign | Admin → Pengguna → ubah status ke **No login**. |
+| Kode diubah tapi tampilan tidak berubah | Terbitkan **New version** di Manage deployments (URL tetap sama). |
+| Pesan "Terjadi kesalahan di server" | Apps Script → **Executions** untuk melihat detail errornya. |
+| Foto gagal diunggah dari HP | Coba sinyal lebih baik. Kompresi foto sudah otomatis (±200-400 KB). |
+| Menambah pilihan UoM | Tambah baris di sheet `UoM`, atau pemohon memilih "Other" lalu kode itu otomatis tersimpan. |
+| Menambah akun baru | Admin → Impor akun (akun lama tidak ditimpa password-nya), atau tambah baris di sheet `Users` (kolom lain boleh kosong). |
+| Kuota harian Google habis (sangat jarang untuk 2-3 pengajuan per minggu) | Tunggu reset harian. |
+
+Catatan keamanan: repositori ini publik, jangan simpan data akun/material di dalamnya. Password awal `warehouseportal` ada di `Config.gs` (`DEFAULT_PASSWORD`) dan wajib diganti setiap pengguna di login pertama.

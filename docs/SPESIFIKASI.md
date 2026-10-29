@@ -1,6 +1,6 @@
 # Spesifikasi: Scrap Handover Portal, PT DSSP Power Kendari
 
-Status: **DRAFT FINAL, menunggu perintah "Eksekusi"**
+Status: **Sudah diimplementasikan (Tahap 1 sampai 6)**. Lihat `PANDUAN_SETUP.md` untuk pemasangan.
 Tidak ada data pribadi di file ini (repositori publik). Data akun dan material diimpor lewat halaman admin ke Google Sheet.
 
 ## 1. Tujuan

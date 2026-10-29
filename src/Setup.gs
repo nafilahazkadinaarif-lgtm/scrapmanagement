@@ -29,3 +29,14 @@ function seedUoms_() {
   if (Repo.readTable('UoM').length) return;
   CFG.DEFAULT_UOMS.forEach(function (c) { Repo.appendRow('UoM', { Code: c }); });
 }
+
+/** Jalankan sekali: cadangan otomatis tiap Senin dini hari. */
+function installWeeklyBackup() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'weeklyBackup') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('weeklyBackup').timeBased().onWeekDay(ScriptApp.WeekDay.MONDAY).atHour(2).create();
+  console.log('Cadangan mingguan dipasang (Senin ~02:00).');
+}
+
+function weeklyBackup() { Backup.run(); }

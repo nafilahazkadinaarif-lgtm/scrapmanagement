@@ -112,5 +112,39 @@ var Admin = {
       res.departmentsAdded = fresh.length;
       return { ok: true, data: res };
     });
+  },
+
+  MATERIAL_KEYS_: { material: 'no', materialno: 'no', materialnumber: 'no', materialdescription: 'desc', description: 'desc', uom: 'uom' },
+
+  // Daftar material SAP (MM60): hanya No. Material, Deskripsi, UoM yang disimpan. Mengganti seluruh daftar.
+  importMaterials: function (actor, p) {
+    var rows = p.rows || [];
+    if (!rows.length) return Auth.fail('File kosong.');
+    if (rows.length > CFG.MAX_MATERIALS) return Auth.fail('Terlalu banyak baris (maks. ' + CFG.MAX_MATERIALS + ').');
+    var seen = {}, list = [], skipped = 0;
+    rows.forEach(function (raw) {
+      var r = {};
+      Object.keys(raw || {}).forEach(function (k) {
+        var f = Admin.MATERIAL_KEYS_[String(k).toLowerCase().replace(/[^a-z]/g, '')];
+        if (f) r[f] = String(raw[k] === null || raw[k] === undefined ? '' : raw[k]).trim();
+      });
+      if (!r.no || !r.desc || seen[r.no]) { skipped++; return; }
+      seen[r.no] = true;
+      list.push({ MaterialNo: r.no, Description: r.desc.substring(0, 200), UoM: (r.uom || '').substring(0, 20) });
+    });
+    if (!list.length) return Auth.fail('Tidak ada baris valid. Kolom wajib: Material, Material Description, UoM.');
+    return Repo.withLock(function () {
+      Repo.writeTable('Materials', list);
+      var known = Subs.uoms_(), added = [];
+      list.forEach(function (m) {
+        if (m.UoM && known.indexOf(m.UoM) < 0 && added.indexOf(m.UoM) < 0) added.push(m.UoM);
+      });
+      Subs.addUoms_(added);
+      return { ok: true, data: { total: list.length, skipped: skipped, newUoms: added } };
+    });
+  },
+
+  backupNow: function () {
+    return { ok: true, data: { name: Backup.run() } };
   }
 };

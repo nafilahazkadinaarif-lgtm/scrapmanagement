@@ -11,6 +11,15 @@ var Subs = {
     return rows.length ? rows : CFG.DEFAULT_UOMS.slice();
   },
 
+  // Tambah kode UoM ke sheet. Bila sheet masih kosong, isi daftar awal dulu agar tidak hilang.
+  addUoms_: function (codes) {
+    if (!codes.length) return;
+    if (!Repo.readTable('UoM').length) {
+      CFG.DEFAULT_UOMS.forEach(function (c) { if (codes.indexOf(c) < 0) Repo.appendRow('UoM', { Code: c }); });
+    }
+    codes.forEach(function (c) { Repo.appendRow('UoM', { Code: c }); });
+  },
+
   log_: function (user, id, action, note) {
     Repo.appendRow('History', {
       SubmissionID: id, At: Subs.iso_(), ByNIK: user.NIK, ByName: user.Name, Action: action, Note: note || ''
@@ -238,7 +247,7 @@ var Subs = {
       v.value.items.forEach(function (it) {
         if (known.indexOf(it.uom) < 0 && fresh.indexOf(it.uom) < 0) fresh.push(it.uom);
       });
-      fresh.forEach(function (c) { Repo.appendRow('UoM', { Code: c }); });
+      Subs.addUoms_(fresh);
 
       if (creating) Subs.log_(user, sub.ID, 'Draft dibuat', '');
       return { ok: true, data: Subs.view_(sub, false) };

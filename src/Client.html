@@ -219,6 +219,8 @@
         h('button', { class: 'secondary small', text: 'Kembali', onclick: viewHome })
       ]),
       importCard(listBox),
+      materialCard(),
+      backupCard(),
       h('div', { class: 'card' }, [h('label', { text: 'Cari akun' }), search]),
       listBox
     );
@@ -283,6 +285,68 @@
         (u.locked ? ' · TERKUNCI' : '') }),
       h('div', { class: 'row' }, [status, h('label', { class: 'check' }, [logi, 'Logistic Staff']), reset]),
       msg
+    ]);
+  }
+
+  function loadXlsxLib() {
+    if (window.XLSX) return Promise.resolve();
+    return new Promise(function (ok, bad) {
+      var s = document.createElement('script');
+      s.src = XLSX_URL; s.onload = ok;
+      s.onerror = function () { bad(new Error('Gagal memuat pembaca Excel. Periksa internet lalu coba lagi.')); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function materialCard() {
+    var file = h('input', { type: 'file', accept: '.xlsx,.xls,.csv' });
+    var out = h('div', { class: 'muted' });
+    var btn = h('button', { class: 'block', text: 'Impor daftar material' });
+    btn.addEventListener('click', function () {
+      if (!file.files[0]) { out.className = 'err'; out.textContent = 'Pilih file MM60 dulu.'; return; }
+      if (!window.confirm('Daftar material lama akan diganti seluruhnya. Lanjut?')) return;
+      btn.disabled = true; out.className = 'muted'; out.textContent = 'Membaca file...';
+      loadXlsxLib().then(function () { return file.files[0].arrayBuffer(); }).then(function (buf) {
+        var wb = window.XLSX.read(buf, { type: 'array' });
+        var all = window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: '', raw: false });
+        // kirim hanya 3 kolom yang dipakai
+        var rows = all.map(function (r) {
+          return { Material: r['Material'], 'Material Description': r['Material Description'], UoM: r['UoM'] };
+        });
+        out.textContent = 'Mengimpor ' + rows.length + ' baris...';
+        return call('admin.importMaterials', { rows: rows });
+      }).then(function (r) {
+        btn.disabled = false;
+        if (r.code === 'SESSION') { logout(r.error); return; }
+        if (!r.ok) { out.className = 'err'; out.textContent = r.error; return; }
+        out.className = 'okmsg';
+        out.textContent = 'Material: ' + r.data.total + ' · Dilewati: ' + r.data.skipped +
+          (r.data.newUoms.length ? ' · UoM baru: ' + r.data.newUoms.join(', ') : '');
+      }).catch(function (e) { btn.disabled = false; out.className = 'err'; out.textContent = e.message; });
+    });
+    return h('details', { class: 'card' }, [
+      h('summary', { text: 'Impor daftar material SAP (MM60)' }),
+      h('p', { class: 'muted', text: 'Kolom yang dipakai: Material, Material Description, UoM. Harga dan kolom lain diabaikan. Mengganti seluruh daftar lama.' }),
+      file, btn, out
+    ]);
+  }
+
+  function backupCard() {
+    var out = h('div', { class: 'muted' });
+    var btn = h('button', { class: 'secondary', text: 'Cadangkan sekarang' });
+    btn.addEventListener('click', function () {
+      btn.disabled = true; out.className = 'muted'; out.textContent = 'Menyalin...';
+      call('admin.backupNow').then(function (r) {
+        btn.disabled = false;
+        if (r.code === 'SESSION') { logout(r.error); return; }
+        out.className = r.ok ? 'okmsg' : 'err';
+        out.textContent = r.ok ? 'Cadangan dibuat: ' + r.data.name + ' (folder Scrap Portal Backups di Drive).' : r.error;
+      });
+    });
+    return h('details', { class: 'card' }, [
+      h('summary', { text: 'Cadangan data' }),
+      h('p', { class: 'muted', text: 'Salinan seluruh Google Sheet ke Drive. Cadangan otomatis mingguan dipasang lewat installWeeklyBackup. Disimpan 8 salinan terbaru.' }),
+      btn, out
     ]);
   }
 

@@ -19,6 +19,24 @@
     });
   }
 
+  var materialsPromise = null;
+  function loadMaterials() {
+    if (!materialsPromise) {
+      materialsPromise = call('materials.all').then(function (r) { return r.ok ? r.data.items : []; });
+    }
+    return materialsPromise;
+  }
+
+  // Cari berdasarkan No. Material atau kata dalam deskripsi (semua kata harus cocok)
+  function searchMaterials(list, q) {
+    var words = q.toLowerCase().split(/\s+/).filter(Boolean), out = [];
+    for (var i = 0; i < list.length && out.length < 8; i++) {
+      var hay = (list[i][0] + ' ' + list[i][1]).toLowerCase();
+      if (words.every(function (w) { return hay.indexOf(w) >= 0; })) out.push(list[i]);
+    }
+    return out;
+  }
+
   function statusChip(status) {
     var cls = 'st';
     if (status === 'Disetujui' || status === 'Selesai') cls += ' good';
@@ -224,12 +242,37 @@
         uom.addEventListener('change', function () { it.uom = uom.value; syncUom(); });
         syncUom();
 
+        var search = h('input', { type: 'search', placeholder: 'Cari material SAP (no. atau nama), opsional', autocomplete: 'off' });
+        var sugg = h('ul', { class: 'sugg', style: 'display:none' });
+        var stimer = null;
+        search.addEventListener('input', function () {
+          clearTimeout(stimer);
+          var q = search.value.trim();
+          if (q.length < 3) { sugg.style.display = 'none'; return; }
+          stimer = setTimeout(function () {
+            loadMaterials().then(function (list) {
+              var hits = searchMaterials(list, q);
+              sugg.innerHTML = '';
+              sugg.style.display = hits.length ? '' : 'none';
+              hits.forEach(function (m) {
+                sugg.appendChild(h('li', {}, [h('button', { type: 'button', onclick: function () {
+                  it.materialNo = m[0]; it.description = m[1];
+                  if (m[2] && meta.uoms.indexOf(m[2]) >= 0) { it.uom = m[2]; it.uomOther = ''; }
+                  else if (m[2]) { it.uom = meta.uomOther; it.uomOther = m[2]; }
+                  renderItems();
+                } }, [m[1], h('small', { text: m[0] + (m[2] ? ' · ' + m[2] : '') })])]));
+              });
+            });
+          }, 250);
+        });
+
         itemsBox.appendChild(h('div', { class: 'item' }, [
           h('div', { class: 'head' }, [
             h('b', { text: 'Item ' + (idx + 1) }),
             form.items.length > 1 ? h('button', { class: 'secondary small', type: 'button', text: 'Hapus',
               onclick: function () { form.items.splice(idx, 1); renderItems(); } }) : null
           ]),
+          h('div', {}, [search, sugg]),
           field('No. Material (opsional)', bind(h('input', { type: 'text', inputmode: 'numeric', maxlength: '40' }), it, 'materialNo')),
           field('Material Description *', bind(h('input', { type: 'text', maxlength: '200' }), it, 'description')),
           h('div', { class: 'two' }, [

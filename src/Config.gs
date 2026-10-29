@@ -72,6 +72,12 @@ var CFG = {
       cols: ['SubmissionID', 'At', 'ByNIK', 'ByName', 'Action', 'Note'],
       text: ['SubmissionID', 'At', 'ByNIK']
     },
-    UoM: { cols: ['Code'], text: ['Code'] }
-  }
+    UoM: { cols: ['Code'], text: ['Code'] },
+    Materials: { cols: ['MaterialNo', 'Description', 'UoM'], text: ['MaterialNo', 'UoM'] }
+  },
+
+  MAX_MATERIALS: 30000,
+  SUGGEST_MATERIAL_MIN_CHARS: 3,
+  BACKUP_FOLDER_NAME: 'Scrap Portal Backups',
+  BACKUP_KEEP: 8
 };

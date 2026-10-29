@@ -96,6 +96,20 @@ var Router = {
       auth: 'admin',
       fn: function (ctx, p) { return Admin.resetPassword(ctx.user, p); }
     },
+    'materials.all': {
+      auth: 'user',
+      fn: function () {
+        return { ok: true, data: { items: Repo.readTable('Materials').map(function (m) { return [m.MaterialNo, m.Description, m.UoM]; }) } };
+      }
+    },
+    'admin.importMaterials': {
+      auth: 'admin',
+      fn: function (ctx, p) { return Admin.importMaterials(ctx.user, p); }
+    },
+    'admin.backupNow': {
+      auth: 'admin',
+      fn: function () { return Admin.backupNow(); }
+    },
     'admin.importUsers': {
       auth: 'admin',
       fn: function (ctx, p) { return Admin.importUsers(ctx.user, p); }

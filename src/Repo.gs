@@ -191,6 +191,23 @@ var Repo = {
     return Utilities.base64Encode(pdf.getBytes());
   },
 
+  // ---- Cadangan Sheet ----
+  backupFolder_: function () {
+    var it = DriveApp.getFoldersByName(CFG.BACKUP_FOLDER_NAME);
+    return it.hasNext() ? it.next() : DriveApp.createFolder(CFG.BACKUP_FOLDER_NAME);
+  },
+
+  backupCopy: function (name) {
+    var file = DriveApp.getFileById(Repo.db().getId());
+    return file.makeCopy(name, Repo.backupFolder_()).getId();
+  },
+
+  listBackups: function () {
+    var out = [], it = Repo.backupFolder_().getFiles();
+    while (it.hasNext()) { var f = it.next(); out.push({ id: f.getId(), name: f.getName() }); }
+    return out;
+  },
+
   trashFile: function (fileId) { DriveApp.getFileById(fileId).setTrashed(true); },
   trashFolder: function (folderId) { DriveApp.getFolderById(folderId).setTrashed(true); }
 };

@@ -16,4 +16,4 @@ Repositori ini publik. Jangan pernah memasukkan file akun, daftar material, atau
 - [x] 3. Alur approval
 - [x] 4. Konfirmasi terima dan PDF
 - [x] 5. Rekap
-- [ ] 6. Material SAP dan penutup
+- [x] 6. Material SAP dan penutup

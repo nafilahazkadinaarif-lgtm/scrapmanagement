@@ -7,7 +7,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const SRC = path.join(__dirname, '..', 'src');
-const FILES = ['Config.gs', 'Sec.gs', 'Repo.gs', 'Roles.gs', 'Validate.gs', 'Workflow.gs', 'Auth.gs', 'Admin.gs', 'Pdf.gs', 'Report.gs', 'Subs.gs', 'Dept.gs', 'Router.gs', 'Code.gs', 'Setup.gs'];
+const FILES = ['Config.gs', 'Sec.gs', 'Repo.gs', 'Roles.gs', 'Validate.gs', 'Workflow.gs', 'Auth.gs', 'Admin.gs', 'Pdf.gs', 'Report.gs', 'Backup.gs', 'Subs.gs', 'Dept.gs', 'Router.gs', 'Code.gs', 'Setup.gs'];
 
 function signedBytes(buf) {
   return Array.from(buf, (b) => (b > 127 ? b - 256 : b));
@@ -63,7 +63,9 @@ function createApp(seedUsers) {
     };
     Repo.readFile = function (id) { return 'data:image/jpeg;base64,' + __db.files[id].b64; };
     Repo.htmlToPdf = function (html, name) { return Buffer_.from(html, 'utf8').toString('base64'); };
-    Repo.trashFile = function (id) { delete __db.files[id]; };
+    Repo.backupCopy = function (name) { var id = 'B' + (++__db.seq); (__db.backups = __db.backups || []).push({ id: id, name: name }); return id; };
+    Repo.listBackups = function () { return __clone(__db.backups || []); };
+    Repo.trashFile = function (id) { delete __db.files[id]; if (__db.backups) __db.backups = __db.backups.filter(function (b) { return b.id !== id; }); };
     Repo.trashFolder = function (id) { delete __db.folders[id]; };
   `, ctx);
 

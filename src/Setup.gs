@@ -3,6 +3,9 @@
  * Aman dijalankan ulang (tidak menghapus data).
  */
 function setupSheets() {
+  // Simpan ID spreadsheet agar web app tidak bergantung pada "active spreadsheet"
+  var active = SpreadsheetApp.getActiveSpreadsheet();
+  if (active) PropertiesService.getScriptProperties().setProperty('DB_ID', active.getId());
   var ss = Repo.db();
   ensureSheet_(ss, CFG.SHEETS.USERS, CFG.USER_COLS, CFG.USER_TEXT_COLS);
   ensureSheet_(ss, CFG.SHEETS.DEPARTMENTS, CFG.DEPT_COLS, CFG.DEPT_TEXT_COLS);
